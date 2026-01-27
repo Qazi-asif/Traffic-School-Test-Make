@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="DriverSchoolWebService" targetNamespace="http://services.flhsmv.gov/DriverSchoolWebService" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://services.flhsmv.gov/DriverSchoolWebService" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <types>
+    <xsd:schema targetNamespace="http://services.flhsmv.gov/DriverSchoolWebService">
+      <xsd:element name="wsVerifyData">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="mvUserid" type="xsd:string"/>
+            <xsd:element name="mvPassword" type="xsd:string"/>
+            <xsd:element name="mvSchoolid" type="xsd:string"/>
+            <xsd:element name="mvClassDate" type="xsd:string"/>
+            <xsd:element name="mvStartTime" type="xsd:string"/>
+            <xsd:element name="mvSchoolIns" type="xsd:string"/>
+            <xsd:element name="mvSchoolCourse" type="xsd:string"/>
+            <xsd:element name="mvFirstName" type="xsd:string"/>
+            <xsd:element name="mvMiddleName" type="xsd:string"/>
+            <xsd:element name="mvLastName" type="xsd:string"/>
+            <xsd:element name="mvSuffix" type="xsd:string"/>
+            <xsd:element name="mvDob" type="xsd:string"/>
+            <xsd:element name="mvSex" type="xsd:string"/>
+            <xsd:element name="mvSocialSN" type="xsd:string"/>
+            <xsd:element name="mvCitationDate" type="xsd:string"/>
+            <xsd:element name="mvCitationCounty" type="xsd:string"/>
+            <xsd:element name="mvCitationNumber" type="xsd:string"/>
+            <xsd:element name="mvReasonAttending" type="xsd:string"/>
+            <xsd:element name="mvDriversLicense" type="xsd:string"/>
+            <xsd:element name="mvdlStateOfRecordCode" type="xsd:string"/>
+            <xsd:element name="mvAlienNumber" type="xsd:string"/>
+            <xsd:element name="mvNonAlien" type="xsd:string"/>
+            <xsd:element name="mvStreet" type="xsd:string"/>
+            <xsd:element name="mvApartment" type="xsd:string"/>
+            <xsd:element name="mvCity" type="xsd:string"/>
+            <xsd:element name="mvState" type="xsd:string"/>
+            <xsd:element name="mvZipCode" type="xsd:string"/>
+            <xsd:element name="mvZipPlus" type="xsd:string"/>
+            <xsd:element name="mvPhone" type="xsd:string"/>
+            <xsd:element name="mvEmail" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="wsVerifyDataResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+  <message name="wsVerifyDataRequest">
+    <part element="tns:wsVerifyData" name="parameters"/>
+  </message>
+  <message name="wsVerifyDataResponse">
+    <part element="tns:wsVerifyDataResponse" name="parameters"/>
+  </message>
+  <portType name="DriverSchoolWebServicePortType">
+    <operation name="wsVerifyData">
+      <input message="tns:wsVerifyDataRequest"/>
+      <output message="tns:wsVerifyDataResponse"/>
+    </operation>
+  </portType>
+  <binding name="DriverSchoolWebServiceBinding" type="tns:DriverSchoolWebServicePortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="wsVerifyData">
+      <soap:operation soapAction="wsVerifyData"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+  </binding>
+  <service name="DriverSchoolWebService">
+    <port binding="tns:DriverSchoolWebServiceBinding" name="DriverSchoolWebServicePort">
+      <soap:address location="https://services.flhsmv.gov/DriverSchoolWebService/DriverSchoolWebService.asmx"/>
+    </port>
+  </service>
+</definitions>

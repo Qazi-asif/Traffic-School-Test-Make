@@ -1,0 +1,27 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('push_notifications', function (Blueprint $table) {
+            $table->id();
+            $table->string('user_email');
+            $table->string('title');
+            $table->text('message');
+            $table->boolean('is_read')->default(false);
+            $table->timestamps();
+
+            $table->index(['user_email', 'is_read']);
+        });
+    }
+
+    public function down()
+    {
+        Schema::dropIfExists('push_notifications');
+    }
+};

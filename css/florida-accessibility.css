@@ -1,0 +1,101 @@
+/* Florida Accessibility Styles */
+
+/* Font Size Classes */
+.font-small { font-size: 12px !important; }
+.font-medium { font-size: 14px !important; }
+.font-large { font-size: 18px !important; }
+.font-xlarge { font-size: 24px !important; }
+
+/* High Contrast Mode */
+.high-contrast {
+    background: #000000 !important;
+    color: #ffffff !important;
+}
+
+.high-contrast .card {
+    background: #1a1a1a !important;
+    border-color: #ffffff !important;
+    color: #ffffff !important;
+}
+
+.high-contrast .btn-primary {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+}
+
+.high-contrast .nav-link {
+    color: #ffffff !important;
+}
+
+/* Reduced Motion */
+.reduced-motion * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+}
+
+/* Focus Indicators */
+*:focus {
+    outline: 3px solid #007bff !important;
+    outline-offset: 2px !important;
+}
+
+/* Touch Targets (minimum 44px) */
+.btn, .form-control, .nav-link {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Mobile Responsive Breakpoints */
+@media (max-width: 576px) {
+    .florida-mobile {
+        font-size: 16px;
+    }
+    
+    .btn {
+        padding: 12px 16px;
+        font-size: 16px;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 768px) {
+    .florida-tablet {
+        font-size: 14px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .florida-desktop {
+        font-size: 14px;
+    }
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip Links */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 9999;
+}
+
+.skip-link:focus {
+    top: 6px;
+}

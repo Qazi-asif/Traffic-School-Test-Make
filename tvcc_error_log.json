@@ -1,0 +1,26 @@
+{
+    "timestamp": "2025-12-15 15:58:59",
+    "duration_ms": 675.04,
+    "fault_code": "HTTP",
+    "fault_string": "Error Fetching http headers",
+    "message": "Error Fetching http headers",
+    "code": 0,
+    "request": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http:\/\/schemas.xmlsoap.org\/soap\/envelope\/\" xmlns:ns1=\"http:\/\/service.application.tvcc.dmv.ca.gov\/\"><SOAP-ENV:Body><ns1:addCourseCompletion><arg0><ccDate>2025-12-15T15:58:59+00:00<\/ccDate><classCity>Los Angeles<\/classCity><classCntyCd>LA<\/classCntyCd><courtCd>ABC123<\/courtCd><dateOfBirth>1990-05-20T00:00:00<\/dateOfBirth><dlNbr>D1234567890123<\/dlNbr><firstName>John<\/firstName><instructorLicNbr>INS123456<\/instructorLicNbr><instructorName>Test Instructor<\/instructorName><lastName>Doe<\/lastName><modality>4T<\/modality><refNbr>TEST123456<\/refNbr><userDto><password>Traffic24<\/password><userId>Support@dummiestrafficschool.com<\/userId><\/userDto><\/arg0><\/ns1:addCourseCompletion><\/SOAP-ENV:Body><\/SOAP-ENV:Envelope>\n",
+    "response": null,
+    "request_headers": "POST \/tvcc\/tvccservice HTTP\/1.1\r\nHost: xsg.dmv.ca.gov\r\nConnection: Keep-Alive\r\nUser-Agent: California-TVCC-Test-Client\/1.0\r\nContent-Type: text\/xml; charset=utf-8\r\nSOAPAction: \"\"\r\nContent-Length: 787\r\n\r\n",
+    "response_headers": null
+}
+
+{
+    "timestamp": "2025-12-15 16:25:50",
+    "duration_ms": 1223.45,
+    "fault_code": "HTTP",
+    "fault_string": "Error Fetching http headers",
+    "message": "Error Fetching http headers",
+    "code": 0,
+    "request": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http:\/\/schemas.xmlsoap.org\/soap\/envelope\/\" xmlns:ns1=\"http:\/\/service.application.tvcc.dmv.ca.gov\/\"><SOAP-ENV:Body><ns1:addCourseCompletion><arg0><ccDate>2025-12-15T16:25:49+00:00<\/ccDate><classCity>Los Angeles<\/classCity><classCntyCd>LA<\/classCntyCd><courtCd>ABC123<\/courtCd><dateOfBirth>1990-05-20T00:00:00<\/dateOfBirth><dlNbr>D1234567890123<\/dlNbr><firstName>John<\/firstName><instructorLicNbr>INS123456<\/instructorLicNbr><instructorName>Test Instructor<\/instructorName><lastName>Doe<\/lastName><modality>4T<\/modality><refNbr>TEST123456<\/refNbr><userDto><password>Traffic24<\/password><userId>Support@dummiestrafficschool.com<\/userId><\/userDto><\/arg0><\/ns1:addCourseCompletion><\/SOAP-ENV:Body><\/SOAP-ENV:Envelope>\n",
+    "response": null,
+    "request_headers": "POST \/tvcc\/tvccservice HTTP\/1.1\r\nHost: xsg.dmv.ca.gov\r\nConnection: Keep-Alive\r\nUser-Agent: California-TVCC-Test-Client\/1.0\r\nContent-Type: text\/xml; charset=utf-8\r\nSOAPAction: \"\"\r\nContent-Length: 787\r\n\r\n",
+    "response_headers": null
+}
+

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://service.application.tvcc.dmv.ca.gov/" version="1.0" xmlns:tns="http://service.application.tvcc.dmv.ca.gov/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="addCourseCompletion" type="tns:addCourseCompletion"/>
+
+  <xs:element name="addCourseCompletionResponse" type="tns:addCourseCompletionResponse"/>
+
+  <xs:complexType name="addCourseCompletion">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="arg0" type="tns:courseCompletionAddRequest"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="courseCompletionAddRequest">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="ccDate" type="xs:dateTime"/>
+      <xs:element minOccurs="0" name="classCity" type="xs:string"/>
+      <xs:element minOccurs="0" name="classCntyCd" type="xs:string"/>
+      <xs:element minOccurs="0" name="courtCd" type="xs:string"/>
+      <xs:element minOccurs="0" name="dateOfBirth" type="xs:dateTime"/>
+      <xs:element minOccurs="0" name="dlNbr" type="xs:string"/>
+      <xs:element minOccurs="0" name="firstName" type="xs:string"/>
+      <xs:element minOccurs="0" name="instructorLicNbr" type="xs:string"/>
+      <xs:element minOccurs="0" name="instructorName" type="xs:string"/>
+      <xs:element minOccurs="0" name="lastName" type="xs:string"/>
+      <xs:element minOccurs="0" name="modality" type="xs:string"/>
+      <xs:element minOccurs="0" name="refNbr" type="xs:string"/>
+      <xs:element minOccurs="0" name="userDto" type="tns:userDto"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="userDto">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="password" type="xs:string"/>
+      <xs:element minOccurs="0" name="userId" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="addCourseCompletionResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="return" type="tns:courseCompletionAddResponse"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="courseCompletionAddResponse">
+    <xs:sequence>
+      <xs:element name="ccSeqNbr" type="xs:int"/>
+      <xs:element minOccurs="0" name="ccStatCd" type="xs:string"/>
+      <xs:element minOccurs="0" name="ccSubTstamp" type="xs:dateTime"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tvccAccessDeniedExceptionFault">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="message" type="xs:string"/>
+      <xs:element minOccurs="0" name="messageId" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tvccValidationFailedExceptionFault">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="message" type="xs:string"/>
+      <xs:element minOccurs="0" name="messageId" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tvccServiceExceptionFault">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="message" type="xs:string"/>
+      <xs:element minOccurs="0" name="messageId" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

@@ -1,0 +1,204 @@
+/* WCAG 2.1 AA Compliant Accessibility Styles */
+
+/* Font Size Classes */
+.font-small { font-size: 14px !important; }
+.font-medium { font-size: 16px !important; }
+.font-large { font-size: 18px !important; }
+.font-xlarge { font-size: 20px !important; }
+
+/* High Contrast Mode */
+.high-contrast {
+    background: #000000 !important;
+    color: #ffffff !important;
+}
+
+.high-contrast .card,
+.high-contrast .modal-content {
+    background: #1a1a1a !important;
+    border-color: #ffffff !important;
+    color: #ffffff !important;
+}
+
+.high-contrast .btn-primary {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+}
+
+.high-contrast .btn-secondary {
+    background: #cccccc !important;
+    color: #000000 !important;
+    border-color: #cccccc !important;
+}
+
+.high-contrast .form-control {
+    background: #333333 !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+}
+
+.high-contrast .navbar-dark {
+    background: #000000 !important;
+}
+
+.high-contrast a {
+    color: #ffffff !important;
+}
+
+.high-contrast .text-muted {
+    color: #cccccc !important;
+}
+
+/* Reduced Motion */
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+}
+
+/* Focus Indicators */
+*:focus {
+    outline: 3px solid #007bff !important;
+    outline-offset: 2px !important;
+}
+
+.high-contrast *:focus {
+    outline-color: #ffffff !important;
+}
+
+/* Skip Links */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #007bff;
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    z-index: 1000;
+    border-radius: 4px;
+}
+
+.skip-link:focus {
+    top: 6px;
+}
+
+/* Screen Reader Only */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* Touch Targets */
+.touch-target,
+button,
+.btn,
+a,
+input,
+select,
+textarea {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 576px) {
+    .container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* Color Contrast Ratios */
+.text-primary { color: #0056b3 !important; } /* 4.5:1 contrast */
+.text-secondary { color: #495057 !important; } /* 4.5:1 contrast */
+.text-success { color: #516425 !important; } /* 4.5:1 contrast */
+.text-danger { color: #721c24 !important; } /* 4.5:1 contrast */
+.text-warning { color: #856404 !important; } /* 4.5:1 contrast */
+.text-info { color: #0c5460 !important; } /* 4.5:1 contrast */
+
+/* Keyboard Navigation */
+.keyboard-navigation *:focus-visible {
+    outline: 3px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Aria Live Regions */
+[aria-live] {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* Error States */
+.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+.invalid-feedback {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+/* Loading States */
+.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #007bff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.reduced-motion .loading::after {
+    animation: none;
+    content: 'Loading...';
+    width: auto;
+    height: auto;
+    border: none;
+    color: #007bff;
+    font-size: 14px;
+}

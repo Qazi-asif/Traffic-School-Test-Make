@@ -1,0 +1,73 @@
+=== Instructions for Updating Courses on cPanel ===
+
+1. Upload the updated seeder files to your cPanel server:
+   - database/seeders/Delaware3HourRefresherSeeder.php
+   - database/seeders/DelawareAggressiveDrivingSeeder.php
+   - database/seeders/Delaware6HourDefensiveDrivingSeeder.php
+   - database/seeders/FloridaBDICourseSeeder.php
+   - database/seeders/FloridaDefensiveDrivingSeeder.php
+   - database/seeders/MissouriCourseContentSeeder.php
+   - database/seeders/TexasDefensiveDrivingCompleteSeeder.php
+   - app/Console/Commands/UpdateCoursePrices.php
+
+2. SSH into your cPanel server or use Terminal in cPanel
+
+3. Navigate to your Laravel project directory:
+   cd /path/to/your/laravel/project
+
+4. Run the update command:
+   php artisan courses:update-prices
+
+This command will:
+✓ Update all existing course names and prices
+✓ Create missing Texas Insurance Discount course ($28.00)
+✓ Create missing Missouri Insurance Discount course ($24.95)
+✓ Keep all your existing data (users, enrollments, payments, certificates)
+
+=== Updated Courses ===
+
+Delaware:
+- Defensive Driving - 3 Year Refresher/Renewal 3 Hour Course: $17.95
+- Driving/Ticket Dismissal – Aggressive Driving Course: $100.00
+- Insurance Discount - 3 Year Refresher/Renewal 6 Hour Course: $25.00
+
+Florida:
+- Driving/Ticket Dismissal - 4-Hour Basic Driver Improvement Course (BDI): $19.95
+- Insurance Discount - Defensive Driving Course: $16.95
+
+Missouri:
+- Driving/Ticket Dismissal - 8 Hour Driver Improvement Course: $24.94
+- Insurance Discount - Defensive Driving Course: $24.95
+
+Texas:
+- Driving/Ticket Dismissal - 6 Hour Defensive Driving Course: $28.00
+- Insurance Discount - 6 Hour Defensive Driving Course: $28.00
+
+=== Alternative: Manual SQL Update ===
+
+If you can't run artisan commands, run this SQL in phpMyAdmin:
+
+-- Update Delaware courses
+UPDATE florida_courses SET title='Delaware Defensive Driving - 3 Year Refresher/Renewal 3 Hour Course', price=17.95 WHERE state='DE' AND duration=180;
+UPDATE florida_courses SET title='Delaware Driving/Ticket Dismissal – Aggressive Driving Course', price=100.00 WHERE state='DE' AND duration=240;
+UPDATE florida_courses SET title='Delaware Insurance Discount - 3 Year Refresher/Renewal 6 Hour Course', price=25.00 WHERE state='DE' AND duration=360;
+
+-- Update Florida courses
+UPDATE florida_courses SET title='Florida Driving/Ticket Dismissal - 4-Hour Basic Driver Improvement Course (BDI)', price=19.95 WHERE state='FL' AND duration=240;
+UPDATE florida_courses SET title='Florida Insurance Discount - Defensive Driving Course', price=16.95 WHERE state='FL' AND duration=360;
+
+-- Update Missouri course
+UPDATE courses SET title='Missouri Driving/Ticket Dismissal - 8 Hour Driver Improvement Course', price=24.94 WHERE state='Missouri' AND duration=480;
+
+-- Update Texas course
+UPDATE florida_courses SET title='Texas Driving/Ticket Dismissal - 6 Hour Defensive Driving Course', price=28.00 WHERE state='TX';
+
+-- Add Texas Insurance Discount course (if not exists)
+INSERT INTO florida_courses (title, description, state, course_type, duration, price, passing_score, is_active, certificate_type, created_at, updated_at)
+SELECT 'Texas Insurance Discount - 6 Hour Defensive Driving Course', 'Complete 6-hour Texas Defensive Driving Course approved by TDLR for insurance discounts. License Number: CP007', 'TX', 'Insurance Discount', 360, 28.00, 70, 1, 'CP007', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM florida_courses WHERE title LIKE '%Texas%Insurance%');
+
+-- Add Missouri Insurance Discount course (if not exists)
+INSERT INTO courses (title, description, state, duration, price, passing_score, is_active, course_type, delivery_type, certificate_type, created_at, updated_at)
+SELECT 'Missouri Insurance Discount - Defensive Driving Course', 'State-approved defensive driving course for insurance discounts. 100% online with unlimited retakes.', 'Missouri', 480, 24.95, 80, 1, 'BDI', 'Internet', 'form_4444', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title LIKE '%Missouri%Insurance%');

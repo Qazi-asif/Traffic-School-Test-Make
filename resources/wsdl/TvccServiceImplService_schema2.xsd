@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?><xs:schema targetNamespace="http://application.tvcc.dmv.ca.gov/" version="1.0" xmlns:ns1="http://service.application.tvcc.dmv.ca.gov/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:import namespace="http://service.application.tvcc.dmv.ca.gov/" schemaLocation="TvccServiceImplService_schema1.xsd"/>
+
+  <xs:element name="TvccAccessDeniedException" nillable="true" type="ns1:tvccAccessDeniedExceptionFault"/>
+
+  <xs:element name="TvccServiceException" nillable="true" type="ns1:tvccServiceExceptionFault"/>
+
+  <xs:element name="TvccValidationFailedException" nillable="true" type="ns1:tvccValidationFailedExceptionFault"/>
+</xs:schema>
