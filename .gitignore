@@ -1,0 +1,8 @@
+.vercel
+/node_modules
+/vendor
+*.zip
+.env
+.env.backup
+.env.production
+.env.local

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><definitions name="TvccServiceImplService" targetNamespace="http://service.application.tvcc.dmv.ca.gov/" xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://service.application.tvcc.dmv.ca.gov/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <types>
+    <xsd:schema>
+      <xsd:import namespace="http://service.application.tvcc.dmv.ca.gov/" schemaLocation="TvccServiceImplService_schema1.xsd"/>
+    </xsd:schema>
+    <xsd:schema>
+      <xsd:import namespace="http://application.tvcc.dmv.ca.gov/" schemaLocation="TvccServiceImplService_schema2.xsd"/>
+    </xsd:schema>
+  </types>
+  <message name="addCourseCompletion">
+    <part element="tns:addCourseCompletion" name="parameters"/>
+  </message>
+  <message name="addCourseCompletionResponse">
+    <part element="tns:addCourseCompletionResponse" name="parameters"/>
+  </message>
+  <message name="TvccAccessDeniedException">
+    <part element="ns1:TvccAccessDeniedException" name="fault" xmlns:ns1="http://application.tvcc.dmv.ca.gov/"/>
+  </message>
+  <message name="TvccValidationFailedException">
+    <part element="ns2:TvccValidationFailedException" name="fault" xmlns:ns2="http://application.tvcc.dmv.ca.gov/"/>
+  </message>
+  <message name="TvccServiceException">
+    <part element="ns3:TvccServiceException" name="fault" xmlns:ns3="http://application.tvcc.dmv.ca.gov/"/>
+  </message>
+  <portType name="TvccServiceImplDelegate">
+    <operation name="addCourseCompletion">
+      <input message="tns:addCourseCompletion"/>
+      <output message="tns:addCourseCompletionResponse"/>
+      <fault message="tns:TvccAccessDeniedException" name="TvccAccessDeniedException"/>
+      <fault message="tns:TvccValidationFailedException" name="TvccValidationFailedException"/>
+      <fault message="tns:TvccServiceException" name="TvccServiceException"/>
+    </operation>
+  </portType>
+  <binding name="TvccServiceImplPortBinding" type="tns:TvccServiceImplDelegate">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="addCourseCompletion">
+      <soap:operation soapAction=""/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+      <fault name="TvccAccessDeniedException">
+        <soap:fault name="TvccAccessDeniedException" use="literal"/>
+      </fault>
+      <fault name="TvccValidationFailedException">
+        <soap:fault name="TvccValidationFailedException" use="literal"/>
+      </fault>
+      <fault name="TvccServiceException">
+        <soap:fault name="TvccServiceException" use="literal"/>
+      </fault>
+    </operation>
+  </binding>
+  <service name="TvccServiceImplService">
+    <port binding="tns:TvccServiceImplPortBinding" name="TvccServiceImplPort">
+      <soap:address location="https://testxsg.dmv.ca.gov/tvcc_uat/tvccservice"/>
+    </port>
+  </service>
+</definitions>

@@ -1,0 +1,2221 @@
+================================================================================
+                    CODEBASE SUMMARY - PART 1: OVERVIEW
+================================================================================
+
+PROJECT NAME: Multi-State Online Traffic School Platform
+DOMAIN: elearning.wolkeconsultancy.website
+LAST UPDATED: December 2, 2025
+
+================================================================================
+1. PRODUCT OVERVIEW
+================================================================================
+
+A comprehensive multi-state online traffic school and defensive driving course 
+platform that provides state-compliant driver education courses with automated 
+certificate generation and submission to state authorities.
+
+SUPPORTED STATES:
+- Florida (Primary) - Full DICDS/FLHSMV integration
+- Missouri - Form 4444 generation, custom quiz banks
+- Texas - State-specific course structures
+- Delaware - 3hr/6hr defensive driving courses
+
+CORE CAPABILITIES:
+- Online course delivery with chapter-based learning
+- Quiz and final exam system with passing requirements
+- Automated certificate generation and state submission
+- Multi-gateway payment processing (Stripe, PayPal, Dummy)
+- Multi-step user registration with validation
+- Course timer enforcement for state compliance
+- Email notification system
+- Comprehensive admin dashboard
+- Invoice generation and management
+- Support ticket system
+- PWA (Progressive Web App) support
+
+USER ROLES:
+1. Student - Takes courses, receives certificates
+2. Instructor - Manages course content
+3. School Admin - Manages school operations
+4. Super Admin - Full system access
+
+================================================================================
+2. TECHNOLOGY STACK
+================================================================================
+
+BACKEND:
+- Framework: Laravel 12.0
+- PHP Version: 8.2+
+- Authentication: JWT (tymon/jwt-auth)
+- Database: MySQL/SQLite
+- PDF Generation: DomPDF (barryvdh/laravel-dompdf)
+- Document Processing: PHPWord (phpoffice/phpword)
+- Payment: Stripe PHP SDK
+
+FRONTEND:
+- Build Tool: Vite 7.0
+- CSS Framework: Tailwind CSS 4.0
+- JavaScript Framework: Vue 3.5
+- Templating: Blade (Laravel)
+
+DEVELOPMENT TOOLS:
+- Testing: PHPUnit 11.5
+- Code Style: Laravel Pint
+- Local Dev: Laravel Sail
+- Logging: Laravel Pail
+- Process Management: Concurrently
+
+
+================================================================================
+3. ARCHITECTURE PATTERNS
+================================================================================
+
+PRIMARY PATTERN: Laravel MVC with Event-Driven Architecture
+
+KEY ARCHITECTURAL PATTERNS:
+
+1. EVENT-DRIVEN ARCHITECTURE
+   Events trigger listeners for emails and notifications:
+   - UserEnrolled → SendEnrollmentConfirmation
+   - PaymentApproved → SendPaymentApprovedEmail
+   - CourseCompleted → SendCourseCompletedEmail
+   - CertificateGenerated → SendCertificateEmail
+
+2. OBSERVER PATTERN
+   Model observers handle side effects:
+   - EnrollmentObserver: Handles enrollment lifecycle
+   - PaymentObserver: Handles payment processing and invoice generation
+
+3. SERVICE LAYER
+   Business logic extracted to dedicated service classes:
+   - CertificatePdfService: PDF generation
+   - EnhancedCertificatePdfService: Advanced PDF features
+   - FlhsmvSoapService: Florida state submissions
+   - FloridaDicdsSoapService: DICDS integration
+   - StripePaymentService: Stripe payment processing
+   - PayPalPaymentService: PayPal payment processing
+   - CourseTimerService: Timer enforcement
+   - FloridaMailService: Florida-specific email handling
+   - CertificateAccessService: Certificate access control
+
+4. MULTI-STATE SUPPORT
+   State-specific tables and models:
+   - florida_* tables for Florida-specific data
+   - missouri_* tables for Missouri-specific data
+   - Generic courses table with state differentiation
+
+5. MIDDLEWARE ARCHITECTURE
+   - Authentication middleware (JWT-based)
+   - Role-based access control (role:super-admin,admin)
+   - Session management
+
+================================================================================
+4. PROJECT STRUCTURE
+================================================================================
+
+ROOT DIRECTORY:
+├── app/                    # Application code
+├── bootstrap/              # Framework bootstrap
+├── config/                 # Configuration files
+├── database/               # Migrations, seeders, factories
+├── public/                 # Public assets, entry point
+├── resources/              # Views, JS, CSS
+├── routes/                 # Route definitions
+├── storage/                # Logs, cache, uploads
+├── tests/                  # Test files
+├── vendor/                 # Composer dependencies
+├── node_modules/           # NPM dependencies
+├── .env                    # Environment configuration
+├── composer.json           # PHP dependencies
+├── package.json            # Node dependencies
+├── vite.config.js          # Vite build configuration
+└── artisan                 # CLI tool
+
+
+================================================================================
+5. APPLICATION DIRECTORY STRUCTURE (/app)
+================================================================================
+
+/app/Console/Commands/
+- CheckCourseCompletion.php: Automated course completion checks
+- GenerateMissingInvoices.php: Invoice generation for payments
+
+/app/Events/
+- UserEnrolled.php: Fired when user enrolls in course
+- PaymentApproved.php: Fired when payment is approved
+- CourseCompleted.php: Fired when course is completed
+- CertificateGenerated.php: Fired when certificate is generated
+
+/app/Listeners/
+- SendEnrollmentConfirmation.php: Sends enrollment email
+- SendPaymentApprovedEmail.php: Sends payment confirmation
+- SendCourseCompletedEmail.php: Sends completion notification
+- SendCertificateEmail.php: Sends certificate delivery email
+
+/app/Observers/
+- EnrollmentObserver.php: Handles enrollment lifecycle events
+- PaymentObserver.php: Handles payment processing and invoice generation
+
+/app/Providers/
+- AppServiceProvider.php: Application service provider
+- EventServiceProvider.php: Event-listener mappings
+
+/app/Rules/
+- CitationNumber.php: Custom validation for citation numbers
+- FloridaDriverLicense.php: Florida DL validation
+
+/app/Mail/
+- WelcomeMail.php: Welcome email for new users
+- EnrollmentConfirmation.php: Course enrollment confirmation
+- CertificateDeliveryMail.php: Certificate delivery
+- CertificateGenerated.php: Certificate generation notification
+- CertificateSubmission.php: Certificate submission notification
+- TicketMail.php: Support ticket emails
+
+/app/Notifications/
+- CertificateGeneratedNotification.php
+- CourseCompletedNotification.php
+- EnrollmentConfirmation.php
+- PaymentApprovedNotification.php
+
+
+================================================================================
+6. CONTROLLERS (80+ Controllers)
+================================================================================
+
+AUTHENTICATION & USER MANAGEMENT:
+- AuthController: Login, logout, JWT authentication
+- RegistrationController: Multi-step registration (4 steps)
+- UserController: User CRUD operations
+- UserAccessController: Account locking/unlocking
+
+COURSE MANAGEMENT:
+- CourseController: Course CRUD, public/private listings
+- ChapterController: Chapter management
+- CourseChapterController: Chapter-course relationships
+- QuestionController: Quiz question management
+- QuizAttemptController: Quiz attempt tracking
+- ProgressController: Course progress tracking
+- CourseCompletionController: Completion logic
+- CourseTimerController: Timer enforcement
+- TimerController: Timer session management
+
+PAYMENT PROCESSING:
+- PaymentController: Payment CRUD operations
+- PaymentPageController: Payment page rendering
+- PaymentGatewayController: Gateway integration
+- InvoiceController: Invoice generation and management
+- CouponController: Coupon/discount management
+
+CERTIFICATE MANAGEMENT:
+- CertificateController: Certificate CRUD and generation
+- CertificateVerificationController: Public verification
+- CertificateLookupController: Certificate lookup
+
+STATE-SPECIFIC CONTROLLERS:
+
+Florida:
+- FloridaCourseController: Florida course management
+- FloridaCertificateController: Florida certificate handling
+- FloridaSchoolController: School management
+- FloridaInstructorController: Instructor management
+- FloridaDashboardController: Florida-specific dashboard
+- FloridaComplianceController: Compliance reporting
+- FloridaApprovalController: Order approval workflow
+- FloridaSecurityLogController: Security logging
+- FloridaAccessibilityController: Accessibility features
+- FloridaAnalyticsController: Analytics tracking
+- FloridaAuditController: Audit trail management
+- FloridaDataExportController: Data export functionality
+- FloridaMobileOptimizationController: Mobile optimization
+- FloridaPWAController: PWA features
+
+DICDS Integration (Florida):
+- DicdsController: Main DICDS integration
+- DicdsAuthController: DICDS authentication
+- DicdsIntegrationController: Integration management
+- DicdsOrderController: Certificate orders
+- DicdsOrderAmendmentController: Order amendments
+- DicdsReceiptController: Receipt generation
+- DicdsAccessController: Access requests
+- DicdsHelpController: Help ticket system
+- DicdsNavigationController: Navigation logging
+- DicdsUserManagementController: User management
+- DicdsWelcomeController: Welcome screens
+
+Missouri:
+- MissouriController: Missouri-specific functionality
+
+FLHSMV Integration:
+- FlhsmvController: FLHSMV SOAP submissions
+
+
+ADMIN & REPORTING:
+- DashboardController: Main dashboard statistics
+- ReportController: Report generation
+- AuditController: Audit log management
+- WebAdminController: Web admin interface
+
+STATE INTEGRATION:
+- StateConfigurationController: State settings
+- StateSubmissionController: State submission queue
+- StateStampController: State stamp management
+
+EMAIL & NOTIFICATIONS:
+- EmailTemplateController: Email template management
+- EmailLogController: Email log viewing
+- NotificationController: Push notifications
+- NotificationSettingController: Notification preferences
+
+SUPPORT & HELP:
+- SupportTicketController: Support ticket system
+- TicketRecipientController: Ticket recipient management
+- FaqController: FAQ management
+
+COMPLIANCE & LEGAL:
+- ComplianceRuleController: Compliance rule management
+- LegalDocumentController: Legal document management
+- ConsentController: User consent tracking
+- CopyrightProtectionController: Copyright protection
+
+LOCATION MANAGEMENT:
+- CountyController: County/court management
+- CourtController: Court management
+
+ACCESSIBILITY & SECURITY:
+- AccessibilityController: Accessibility preferences
+- AccountSecurityController: Security settings
+- SecurityLogController: Security log viewing
+- DataExportController: GDPR data export
+
+SCHOOL MANAGEMENT:
+- SchoolManagementController: School administration
+- SchoolActivityController: School activity reports
+- InstructorCourseController: Instructor-course assignments
+
+MISCELLANEOUS:
+- ReviewController: Course reviews
+- FinalExamController: Final exam handling
+- EnrollmentController: Enrollment management
+- MobileOptimizationController: Mobile features
+- PWAController: Progressive Web App features
+
+
+================================================================================
+7. DATA MODELS (110+ Models)
+================================================================================
+
+USER & AUTHENTICATION:
+- User: Main user model with JWT implementation
+- Role: User roles (Student, Instructor, School Admin, Super Admin)
+- ApiToken: API token management
+- LoginAttempt: Login attempt tracking
+- PasswordHistory: Password history for security
+- DeviceSession: Device session tracking
+- UserAccessibilityPreference: Accessibility settings
+
+COURSE STRUCTURE:
+- Course: Main course model
+- FloridaCourse: Florida-specific courses
+- Chapter: Course chapters
+- CourseChapter: Chapter-course relationships
+- ChapterProgress: User chapter progress
+- Question: Quiz questions
+- QuestionBank: Question repository
+- ChapterQuestion: Chapter-specific questions
+- MissouriQuizBank: Missouri quiz questions
+- MissouriCourseStructure: Missouri course structure
+- CourseContent: Course content storage
+- CourseMedia: Media files for courses
+- CourseSuffix: Course suffix management
+- CourseTimer: Course timer settings
+- ChapterTimer: Chapter timer settings
+- TimerSession: Active timer sessions
+
+ENROLLMENT & PROGRESS:
+- UserCourseEnrollment: User course enrollments
+- UserCourseProgress: Course progress tracking
+- QuizAttempt: Quiz attempt records
+
+CERTIFICATES:
+- Certificate: Generic certificates
+- FloridaCertificate: Florida-specific certificates
+- CertificateTemplate: Certificate templates
+- CertificateInventory: Certificate inventory tracking
+- CertificateDistribution: Certificate distribution logs
+- CertificateVerificationLog: Verification attempts
+- CertificateLookupLog: Certificate lookups
+- CertificateQrCode: QR code generation
+
+PAYMENTS & INVOICING:
+- Payment: Main payment model
+- FloridaPayment: Florida-specific payments
+- StripePayment: Stripe payment records
+- PayPalPayment: PayPal payment records
+- PaymentTransaction: Payment transactions
+- PaymentRefund: Refund records
+- Invoice: Invoice generation
+- Refund: Refund management
+- Coupon: Discount coupons
+- CouponUsage: Coupon usage tracking
+- FloridaPricingRule: Florida pricing rules
+- FloridaFeeRemittance: Fee remittance to Florida
+
+
+DICDS (Florida Driver Improvement Course Data System):
+- DicdsUser: DICDS user accounts
+- DicdsCertificateOrder: Certificate orders
+- DicdsOrderAmendment: Order amendments
+- DicdsOrderReceipt: Order receipts
+- DicdsSystemMessage: System messages
+- DicdsLoginAttempt: DICDS login tracking
+- DicdsAccessRequest: Access requests
+- DicdsHelpTicket: Help tickets
+- DicdsNavigationLog: Navigation tracking
+- DicdsWebServiceInfo: Web service information
+
+FLORIDA-SPECIFIC:
+- FloridaSchool: Florida schools
+- FloridaInstructor: Florida instructors
+- FloridaComplianceCheck: Compliance checks
+- FloridaComplianceReport: Compliance reports
+- FloridaOrderApproval: Order approvals
+- FloridaAuditTrail: Audit trail
+- FloridaSecurityLog: Security logs
+- FloridaLoginAttempt: Login attempts
+- FloridaPasswordHistory: Password history
+- FloridaDeviceSession: Device sessions
+- FloridaMobileAnalytics: Mobile analytics
+- FloridaUserAccessibility: Accessibility settings
+- FloridaDataExport: Data exports
+- FloridaNotification: Notifications
+- FloridaNotificationSetting: Notification settings
+- FloridaEmailTemplate: Email templates
+- FloridaEmailLog: Email logs
+
+FLHSMV (Florida Highway Safety and Motor Vehicles):
+- FlhsmvSubmission: FLHSMV submissions
+- FlhsmvSubmissionQueue: Submission queue
+- FlhsmvSubmissionError: Submission errors
+
+MISSOURI-SPECIFIC:
+- MissouriStudent: Missouri students
+- MissouriForm4444: Form 4444 generation
+- MissouriSubmissionTracker: Submission tracking
+
+STATE MANAGEMENT:
+- State: US states
+- StateConfiguration: State-specific settings
+- StateSubmissionLog: State submission logs
+- StateSubmissionQueue: State submission queue
+- StateStamp: State stamps for certificates
+- County: Counties
+- Court: Courts
+
+SCHOOL & INSTRUCTOR:
+- School: Schools
+- SchoolCourse: School-course relationships
+- SchoolActivityReport: School activity reports
+- SchoolManagementLog: School management logs
+- Instructor: Instructors
+- InstructorCourseAssignment: Instructor assignments
+
+
+COMMUNICATION:
+- EmailTemplate: Email templates
+- EmailLog: Email sending logs
+- Notification: User notifications
+- NotificationSetting: Notification preferences
+- PushNotification: Push notifications
+
+COMPLIANCE & LEGAL:
+- ComplianceRule: Compliance rules
+- LegalDocument: Legal documents
+- LegalComplianceSetting: Compliance settings
+- UserLegalConsent: User consent tracking
+- CopyrightProtectionLog: Copyright protection logs
+
+SUPPORT & HELP:
+- SupportTicket: Support tickets
+- SupportTicketReply: Ticket replies
+- TicketRecipient: Ticket recipients
+- Faq: Frequently asked questions
+
+REPORTING & ANALYTICS:
+- Report: Generated reports
+- DashboardWidget: Dashboard widgets
+- AuditLog: System audit logs
+- SecurityLog: Security logs
+- DataExportRequest: Data export requests
+
+MISCELLANEOUS:
+- Review: Course reviews
+- ReasonAttending: Reasons for attending
+
+================================================================================
+8. DATABASE STRUCTURE
+================================================================================
+
+TOTAL MIGRATIONS: 150+
+
+MIGRATION CATEGORIES:
+
+Core System (2024-2025):
+- User tables and authentication
+- Role-based access control
+- Cache and job queues
+- Session management
+
+Course System:
+- courses, florida_courses tables
+- chapters, course_chapters tables
+- questions, chapter_questions tables
+- quiz_attempts, chapter_progress tables
+- course_media, course_timers tables
+
+Enrollment & Progress:
+- user_course_enrollments
+- user_course_progress
+- chapter_progress
+
+Payment System:
+- payments, florida_payments tables
+- invoices, refunds tables
+- payment_refunds, payment_transactions
+- coupons, coupon_usage tables
+
+Certificate System:
+- certificates, florida_certificates tables
+- certificate_templates, certificate_inventory
+- certificate_distribution, certificate_verification_logs
+- certificate_lookup_logs, certificate_qr_codes
+
+
+DICDS System:
+- dicds_users, dicds_certificate_orders
+- dicds_order_amendments, dicds_order_receipts
+- dicds_system_messages, dicds_login_attempts
+- dicds_access_requests, dicds_help_tickets
+- dicds_navigation_logs, dicds_web_service_info
+
+Florida-Specific:
+- florida_schools, florida_instructors
+- florida_compliance_checks, florida_compliance_reports
+- florida_order_approvals, florida_audit_trails
+- florida_security_logs, florida_login_attempts
+- florida_device_sessions, florida_mobile_analytics
+- florida_user_accessibility, florida_data_exports
+- florida_notifications, florida_notification_settings
+- florida_email_templates, florida_email_logs
+- florida_pricing_rules, florida_fee_remittances
+
+FLHSMV Integration:
+- flhsmv_submissions, flhsmv_submission_queue
+- flhsmv_submission_errors
+
+Missouri-Specific:
+- missouri_students, missouri_form_4444
+- missouri_quiz_banks, missouri_course_structures
+- missouri_submission_trackers
+
+State Management:
+- states, state_configurations
+- state_submission_logs, state_submission_queue
+- state_stamps, counties, courts
+
+Communication:
+- email_templates, email_logs
+- notifications, notification_settings
+- push_notifications
+
+Security & Compliance:
+- security_logs, login_attempts
+- password_history, api_tokens
+- device_sessions, data_export_requests
+- compliance_rules, legal_documents
+- user_legal_consents, copyright_protection_logs
+
+Support:
+- support_tickets, support_ticket_replies
+- ticket_recipients, faqs
+
+Reporting:
+- reports, dashboard_widgets
+- audit_logs, school_activity_reports
+- school_management_logs
+
+Miscellaneous:
+- reviews, user_accessibility_preferences
+- instructor_course_assignments
+
+
+================================================================================
+9. DATABASE SEEDERS (45+ Seeders)
+================================================================================
+
+CORE SEEDERS:
+- DatabaseSeeder.php: Main seeder orchestrator
+- RoleSeeder.php: User roles (Student, Instructor, School Admin, Super Admin)
+- UserSeeder.php: Test users
+- StateSeeder.php: US states
+- StateConfigurationSeeder.php: State-specific configurations
+- StateStampSeeder.php: State stamps for certificates
+- CourseSeeder.php: Generic courses
+- CourtsSeeder.php: Court data
+- EmailTemplateSeeder.php: Email templates
+- PaymentSeeder.php: Test payments
+- TestCertificateSeeder.php: Test certificates
+- PrivacyPolicySeeder.php: Privacy policy content
+
+FLORIDA SEEDERS:
+- FloridaMasterSeeder.php: Master Florida seeder
+- FloridaDataSeeder.php: Florida data initialization
+- FloridaRolesSeeder.php: Florida-specific roles
+- FloridaSecuritySeeder.php: Security settings
+- FloridaBDICourseSeeder.php: BDI course content
+- FloridaDefensiveDrivingSeeder.php: Defensive driving course
+- FloridaDefensiveDrivingCompleteSeeder.php: Complete course data
+- FloridaDefensiveDrivingCompleteAllSeeder.php: All course variations
+- FloridaDefensiveDrivingExtendedSeeder.php: Extended course content
+- FloridaDefensiveDrivingFinalSeeder.php: Final exam content
+
+MISSOURI SEEDERS:
+- MissouriMasterSeeder.php: Master Missouri seeder
+- MissouriCourseSeeder.php: Missouri courses
+- MissouriCourseContentSeeder.php: Course content
+- MissouriQuestionsSeeder.php: Quiz questions
+- MissouriQuizSeeder.php: Quiz data (Part 1)
+- MissouriQuizSeederPart2.php: Quiz data (Part 2)
+- MissouriQuizSeederPart3.php: Quiz data (Part 3)
+- MissouriAllQuestionsSeeder.php: All questions
+- MissouriCompleteQuestionsSeeder.php: Complete question bank
+- MissouriFinalExamSeeder.php: Final exam questions
+- MissouriFaqSeeder.php: Missouri FAQs
+- CompleteQuizSeeder.php: Complete quiz setup
+
+TEXAS SEEDERS:
+- TexasMasterSeeder.php: Master Texas seeder
+- TexasDefensiveDrivingCompleteSeeder.php: Complete Texas course
+- TexasFaqSeeder.php: Texas FAQs
+
+DELAWARE SEEDERS:
+- DelawareMasterSeeder.php: Master Delaware seeder
+- Delaware3HourRefresherSeeder.php: 3-hour refresher course
+- Delaware6HourDefensiveDrivingSeeder.php: 6-hour defensive driving
+- DelawareAggressiveDrivingSeeder.php: Aggressive driving course
+
+DICDS SEEDERS:
+- DicdsSeeder.php: DICDS system data
+
+UTILITY SEEDERS:
+- UpdateCourseTitle.php: Course title updates
+- missouri_questions_data.php: Missouri question data file
+
+
+================================================================================
+10. ROUTES OVERVIEW
+================================================================================
+
+ROUTE CATEGORIES:
+
+PUBLIC ROUTES:
+- GET / → Redirect to dashboard
+- GET /login → Login page
+- POST /login → Authentication
+- POST /logout → Logout
+- GET /certificates/{verificationHash}/verify → Public certificate verification
+
+REGISTRATION (Multi-Step):
+- GET /register/step/{step} → Registration steps 1-4
+- POST /register/step/{step} → Process registration steps
+
+AUTHENTICATED USER ROUTES (middleware: auth):
+- GET /dashboard → User dashboard
+- GET /courses → Course listing
+- GET /course-details/{table}/{courseId} → Course details
+- GET /course-player → Course player interface
+- GET /course-player/{enrollmentId} → Specific enrollment player
+- GET /my-enrollments → User enrollments
+- GET /my-certificates → User certificates
+- GET /my-payments → Payment history
+- GET /profile → User profile
+- GET /open-ticket → Support ticket creation
+
+CERTIFICATE ROUTES:
+- GET /certificates → Certificate listing
+- GET /generate-certificates → Certificate selection
+- GET /generate-certificate/{enrollment_id} → Generate specific certificate
+- GET /review-course → Course review page
+- POST /submit-review → Submit course review
+- GET /certificates/verify/{hash} → Verify certificate by hash
+
+PAYMENT ROUTES (middleware: auth):
+- GET /payment → Payment page
+- POST /payment/stripe → Process Stripe payment
+- POST /payment/paypal → Process PayPal payment
+- POST /payment/dummy → Process dummy payment (testing)
+- GET /payment/success → Payment success page
+- GET /payment/cancel → Payment cancellation page
+
+INVOICE ROUTES (middleware: auth):
+- GET /invoices/{invoice} → View invoice
+- GET /invoices/{invoice}/download → Download invoice PDF
+
+FILE SERVING ROUTES:
+- GET /files/{filename} → Serve course media files
+- GET /storage/course-media/{filename} → Serve storage files
+- GET /files/{path} → Generic file serving
+
+
+WEB API ROUTES (middleware: auth):
+
+Course Management:
+- GET /web/courses → List courses
+- POST /web/courses → Create course
+- PUT /web/courses/{course} → Update course
+- GET /web/courses/{course}/chapters → List chapters
+- POST /web/courses/{course}/chapters → Create chapter
+- PUT /web/chapters/{chapter} → Update chapter
+- DELETE /web/chapters/{chapter} → Delete chapter
+
+Enrollment & Progress:
+- POST /web/enrollments → Create enrollment
+- GET /web/my-enrollments → User enrollments
+- GET /web/enrollments/{enrollment} → Enrollment details
+- POST /web/enrollments/{enrollment}/complete-chapter/{chapter} → Complete chapter
+
+User Management:
+- GET /web/user → Current user info
+- PUT /web/user → Update profile
+- GET /web/my-payments → User payments
+
+ADMIN ROUTES (middleware: auth, role:super-admin,admin):
+
+User Management:
+- GET /web/users → List users
+- POST /web/users → Create user
+- PUT /web/users/{user} → Update user
+- DELETE /web/users/{user} → Delete user
+
+Enrollment Management:
+- GET /web/enrollments → List all enrollments
+
+Payment Management:
+- GET /web/admin/payments → List payments
+- POST /web/admin/payments → Create payment
+- GET /web/admin/payments/{payment} → View payment
+- PUT /web/admin/payments/{payment} → Update payment
+- DELETE /web/admin/payments/{payment} → Delete payment
+- POST /web/admin/payments/{payment}/refund → Process refund
+- GET /web/admin/payments/{payment}/pdf → Download receipt PDF
+- POST /web/admin/payments/{payment}/email → Email receipt
+
+Invoice Management:
+- GET /web/admin/invoices → List invoices
+- POST /web/admin/invoices → Create invoice
+- GET /web/admin/invoices/{invoice} → View invoice
+- PUT /web/admin/invoices/{invoice} → Update invoice
+- DELETE /web/admin/invoices/{invoice} → Delete invoice
+- POST /web/admin/invoices/{invoice}/send → Send invoice
+- GET /web/admin/invoices/{invoice}/download → Download invoice
+- POST /web/admin/invoices/{invoice}/email → Email invoice
+
+Certificate Management:
+- GET /web/admin/certificates → List certificates
+- POST /web/admin/certificates → Create certificate
+- GET /web/admin/certificates/{certificate} → View certificate
+- PUT /web/admin/certificates/{certificate} → Update certificate
+- DELETE /web/admin/certificates/{certificate} → Delete certificate
+- POST /web/admin/certificates/{certificate}/submit-to-state → Submit to state
+- GET /web/admin/certificates/{certificate}/download → Download certificate
+- POST /web/admin/certificates/{certificate}/email → Email certificate
+
+
+State Configuration:
+- GET /web/admin/state-configurations → List state configs
+- POST /web/admin/state-configurations → Create state config
+- GET /web/admin/state-configurations/{stateCode}/test-connection → Test connection
+- DELETE /web/admin/state-configurations/{stateConfiguration} → Delete config
+
+Court Management:
+- GET /web/admin/courts/states → List states
+- POST /web/admin/courts/states → Create state
+- DELETE /web/admin/courts/states/{state} → Delete state
+- GET /web/admin/courts/{state}/counties → List counties
+- POST /web/admin/courts/{state}/counties → Create county
+- DELETE /web/admin/courts/{state}/counties/{county} → Delete county
+- GET /web/admin/courts/{state}/{county} → List courts
+- POST /web/admin/courts → Create court
+- PUT /web/admin/courts/{id} → Update court
+- DELETE /web/admin/courts/{id} → Delete court
+
+State Submission Queue:
+- GET /web/admin/submission-queue → List submissions
+- GET /web/admin/submission-queue/stats → Queue statistics
+- POST /web/admin/submission-queue/process-pending → Process pending
+- POST /web/admin/submission-queue/{id}/retry → Retry submission
+
+Email Management:
+- GET /web/admin/email-templates → List templates
+- POST /web/admin/email-templates → Create template
+- GET /web/admin/email-templates/{emailTemplate} → View template
+- PUT /web/admin/email-templates/{emailTemplate} → Update template
+- DELETE /web/admin/email-templates/{emailTemplate} → Delete template
+- POST /web/admin/email-templates/{emailTemplate}/test → Test template
+- GET /web/admin/email-logs → List email logs
+- GET /web/admin/email-logs/stats → Email statistics
+
+Reporting:
+- GET /web/admin/reports → List reports
+- GET /web/admin/reports/generate → Generate report
+- GET /web/admin/dashboard/stats → Dashboard statistics
+
+DICDS Management:
+- GET /web/dicds-orders → List DICDS orders
+- POST /web/dicds-orders → Create order
+- PUT /web/dicds-orders/{id}/amend → Amend order
+- POST /web/dicds-orders/{id}/generate-receipt → Generate receipt
+- PUT /web/dicds-orders/{id}/update-approval → Update approval
+
+Florida Management:
+- GET /web/florida-schools → List Florida schools
+- GET /web/florida-courses → List Florida courses
+
+State Stamps:
+- GET /admin/state-stamps → List state stamps
+- POST /admin/state-stamps → Create stamp
+- PUT /admin/state-stamps/{id} → Update stamp
+- DELETE /admin/state-stamps/{id} → Delete stamp
+
+Support System:
+- GET /admin/support/tickets → List tickets
+- GET /admin/support/recipients → List recipients
+- POST /admin/support/recipients → Create recipient
+- DELETE /admin/support/recipients/{recipient} → Delete recipient
+- PATCH /admin/support/recipients/{recipient}/toggle → Toggle active status
+
+User Access Control:
+- GET /admin/user-access → List user access
+- PATCH /admin/user-access/{user}/unlock → Unlock user account
+
+FAQ Management:
+- GET /admin/faqs → List FAQs
+
+
+ADMIN VIEW ROUTES (middleware: auth, role:super-admin,admin):
+- GET /admin/florida-courses → Florida courses admin
+- GET /admin/florida-certificates → Florida certificates admin
+- GET /admin/dicds-orders → DICDS orders admin
+- GET /admin/florida-dashboard → Florida dashboard
+- GET /admin/certificate-inventory → Certificate inventory
+- GET /admin/compliance-reports → Compliance reports
+- GET /admin/florida-payments → Florida payments
+- GET /admin/fee-remittances → Fee remittances
+- GET /admin/pricing-rules → Pricing rules
+- GET /admin/flhsmv/submissions → FLHSMV submissions
+- GET /admin/payments/transactions → Payment transactions
+- GET /admin/payments/stripe → Stripe payments
+- GET /admin/payments/paypal → PayPal payments
+- GET /admin/course-timers → Course timers
+- GET /admin/florida-email-templates → Email templates
+- GET /admin/dicds-submissions → DICDS submissions
+- GET /admin/certificate-lookup → Certificate lookup
+- GET /admin/school-activity → School activity
+- GET /admin/web-service-info → Web service info
+- GET /admin/legal-documents → Legal documents
+- GET /admin/copyright-protection → Copyright protection
+- GET /admin/user-consents → User consents
+- GET /admin/counties → Counties management
+- GET /admin/question-banks → Question banks
+
+API ROUTES (JSON responses):
+- GET /api/courses/public → Public course listing
+- GET /api/florida-courses → Florida courses
+- PUT /api/florida-courses/{id} → Update Florida course
+- GET /api/florida-certificates → Florida certificates
+- GET /api/florida-certificates/{id}/view → View certificate
+- GET /api/florida-certificates/{id}/download → Download certificate
+- GET /api/admin/florida-dashboard/stats → Dashboard stats
+- GET /api/admin/certificate-inventory → Certificate inventory
+- GET /api/admin/florida-reports → Florida reports
+- POST /api/admin/florida-reports/generate → Generate report
+- GET /api/admin/florida-reports/{id}/download → Download report
+- GET /api/florida-payments → Florida payments
+- GET /api/florida-remittances → Fee remittances
+- POST /api/florida-remittances → Create remittance
+- POST /api/florida-remittances/{id}/submit → Submit remittance
+- GET /api/pricing-rules → Pricing rules
+- POST /api/pricing-rules → Create pricing rule
+- GET /api/florida-email-templates → Email templates
+- POST /api/florida-email-templates → Create template
+- POST /api/florida-email-templates/{id}/test → Test template
+- GET /api/email-logs → Email logs
+- GET /api/email-logs-stats → Email statistics
+- POST /api/notifications/send → Send notification
+- GET /api/pwa/manifest → PWA manifest
+
+DICDS PREFIX ROUTES:
+- Prefix: /dicds
+- Includes: routes/dicds.php (separate route file)
+
+DEBUG/TEST ROUTES:
+- GET /test-file → File access testing
+- GET /auth-test → Authentication status
+- GET /auth-test-middleware → Middleware test
+
+
+================================================================================
+11. CONFIGURATION FILES
+================================================================================
+
+/config/app.php
+- Application name, environment, debug mode
+- URL configuration
+- Timezone: UTC
+- Locale: en (English)
+- Encryption: AES-256-CBC
+- Service providers and aliases
+
+/config/auth.php
+- Authentication guards (web, api)
+- User providers
+- Password reset settings
+
+/config/database.php
+- Database connections (MySQL, SQLite, PostgreSQL)
+- Migration settings
+- Redis configuration
+
+/config/mail.php
+- Mail driver configuration (SMTP, Mailgun, etc.)
+- From address and name
+- Markdown mail settings
+
+/config/payment.php
+- Payment gateway settings
+- Stripe configuration
+- PayPal configuration
+- Payment processing options
+
+/config/flhsmv.php
+- Florida DICDS/FLHSMV integration settings
+- SOAP endpoint configuration
+- Certificate submission settings
+- State-specific parameters
+
+/config/jwt.php
+- JWT authentication settings
+- Token TTL (time to live)
+- Refresh token settings
+- Signing algorithm
+
+/config/dompdf.php
+- PDF generation settings
+- Font configuration
+- Paper size and orientation
+- Image handling
+
+/config/filesystems.php
+- Storage disk configuration
+- Local, public, S3 storage
+- File upload settings
+
+/config/queue.php
+- Queue connection settings
+- Database queue configuration
+- Redis queue settings
+- Failed job handling
+
+/config/session.php
+- Session driver (file, cookie, database, redis)
+- Session lifetime
+- Cookie settings
+
+/config/services.php
+- Third-party service credentials
+- API keys and secrets
+- Service-specific settings
+
+/config/logging.php
+- Log channels (single, daily, stack)
+- Log levels
+- Error reporting
+
+/config/cache.php
+- Cache driver configuration
+- Cache prefix
+- Store settings
+
+
+================================================================================
+12. VIEWS & FRONTEND STRUCTURE
+================================================================================
+
+/resources/views/
+
+AUTHENTICATION & REGISTRATION:
+- login.blade.php: Login page
+- registration/step1.blade.php: Personal info (name, email, password)
+- registration/step2.blade.php: Address, license, court info
+- registration/step3.blade.php: Security questions
+- registration/step4.blade.php: Terms agreement
+
+USER DASHBOARD:
+- dashboard.blade.php: Main user dashboard
+- profile.blade.php: User profile management
+- my-enrollments.blade.php: User course enrollments
+- my-certificates.blade.php: User certificates
+- my-payments.blade.php: Payment history
+
+COURSE SYSTEM:
+- courses.blade.php: Course listing
+- course-player.blade.php: Main course player interface
+- create-course.blade.php: Course creation (admin)
+
+CERTIFICATES:
+- certificates.blade.php: Certificate listing
+- certificates/select.blade.php: Certificate selection
+- certificates/verify.blade.php: Public certificate verification
+- certificates/florida-certificate.blade.php: Florida certificate template
+
+PAYMENT:
+- payment/course-payment.blade.php: Payment page
+
+INVOICES:
+- invoices/view.blade.php: Invoice viewing
+
+SUPPORT:
+- open-ticket.blade.php: Support ticket creation
+
+ADMIN VIEWS:
+/resources/views/admin/
+
+Dashboard & Reports:
+- florida-dashboard.blade.php: Florida-specific dashboard
+- compliance-reports.blade.php: Compliance reporting
+
+Course Management:
+- florida-courses.blade.php: Florida course management
+- course-timers.blade.php: Course timer management
+- question-banks.blade.php: Question bank management
+
+Certificate Management:
+- certificates.blade.php: Certificate management
+- florida-certificates.blade.php: Florida certificates
+- certificate-inventory.blade.php: Certificate inventory
+- certificate-lookup.blade.php: Certificate lookup
+
+DICDS Management:
+- dicds-orders.blade.php: DICDS order management
+- dicds-submissions.blade.php: DICDS submissions
+- web-service-info.blade.php: Web service information
+
+Payment & Financial:
+- florida-payments.blade.php: Florida payment management
+- fee-remittances.blade.php: Fee remittance tracking
+- pricing-rules.blade.php: Pricing rule management
+- payments/transactions.blade.php: Transaction history
+- payments/stripe.blade.php: Stripe payments
+- payments/paypal.blade.php: PayPal payments
+
+
+Communication:
+- florida-email-templates.blade.php: Email template management
+- notifications.blade.php: Notification management
+
+Location Management:
+- counties.blade.php: County management
+- state-stamps/index.blade.php: State stamp management
+
+Support & Help:
+- support/tickets.blade.php: Support ticket management
+- support/recipients.blade.php: Ticket recipient management
+- faqs.blade.php: FAQ management
+
+Legal & Compliance:
+- legal-documents.blade.php: Legal document management
+- copyright-protection.blade.php: Copyright protection
+- user-consents.blade.php: User consent tracking
+
+School Management:
+- school-activity.blade.php: School activity reports
+
+Security:
+- user-access.blade.php: User access control
+
+EMAIL TEMPLATES:
+/resources/views/emails/
+
+- invoice.blade.php: Invoice email
+- payment-receipt.blade.php: Payment receipt email
+- courses/enrolled.blade.php: Enrollment confirmation
+- courses/completed.blade.php: Course completion
+- payments/approved.blade.php: Payment approval
+- certificates/generated.blade.php: Certificate generation
+
+COMPONENTS:
+/resources/views/components/
+
+- navbar.blade.php: Navigation bar component
+- (Additional reusable Blade components)
+
+FRONTEND ASSETS:
+/resources/js/
+- app.js: Main JavaScript entry point
+- Vue 3.5 components
+- Course player logic
+- Payment processing
+- Admin dashboard interactions
+
+/resources/css/
+- app.css: Main CSS entry point
+- Tailwind CSS 4.0 styles
+- Custom styling
+
+
+================================================================================
+13. SERVICE LAYER
+================================================================================
+
+/app/Services/
+
+CertificateAccessService.php
+- Certificate access control logic
+- Download permission management
+- Access revocation after download
+
+CertificatePdfService.php
+- PDF certificate generation
+- Template rendering
+- Certificate formatting
+
+EnhancedCertificatePdfService.php
+- Advanced PDF features
+- Custom certificate designs
+- State-specific formatting
+
+FlhsmvSoapService.php
+- Florida FLHSMV SOAP API integration
+- Certificate submission to state
+- Response handling and error management
+
+FloridaDicdsSoapService.php
+- DICDS (Driver Improvement Course Data System) integration
+- Order management
+- Certificate inventory tracking
+- State compliance reporting
+
+FloridaMailService.php
+- Florida-specific email handling
+- Template processing
+- Notification delivery
+
+StripePaymentService.php
+- Stripe payment processing
+- Payment intent creation
+- Webhook handling
+- Refund processing
+
+PayPalPaymentService.php
+- PayPal payment integration
+- Order creation
+- Payment capture
+- Refund handling
+
+CourseTimerService.php
+- Course timer enforcement
+- Session tracking
+- Compliance validation
+- Timer pause/resume logic
+
+================================================================================
+14. MIDDLEWARE
+================================================================================
+
+/app/Http/Middleware/
+
+Authentication:
+- JWT authentication middleware
+- Session-based authentication
+- API token validation
+
+Authorization:
+- Role-based access control (role:super-admin,admin)
+- Permission checking
+- Resource ownership verification
+
+Security:
+- CSRF protection
+- XSS prevention
+- Rate limiting
+- IP blocking
+
+Session Management:
+- Session validation
+- Device tracking
+- Concurrent session handling
+
+
+================================================================================
+15. ARTISAN COMMANDS
+================================================================================
+
+/app/Console/Commands/
+
+CheckCourseCompletion.php
+- Automated course completion verification
+- Certificate generation trigger
+- Enrollment status updates
+- Scheduled execution
+
+GenerateMissingInvoices.php
+- Retroactive invoice generation
+- Payment-invoice reconciliation
+- Bulk invoice creation
+
+BUILT-IN LARAVEL COMMANDS:
+- php artisan migrate: Run database migrations
+- php artisan db:seed: Seed database
+- php artisan queue:work: Process queue jobs
+- php artisan cache:clear: Clear application cache
+- php artisan config:clear: Clear configuration cache
+- php artisan route:clear: Clear route cache
+- php artisan view:clear: Clear compiled views
+- php artisan key:generate: Generate application key
+- php artisan serve: Start development server
+- php artisan tinker: Interactive shell
+- php artisan make:* : Code generation commands
+
+================================================================================
+16. QUEUE SYSTEM
+================================================================================
+
+QUEUE CONFIGURATION:
+- Driver: Database (configurable to Redis, SQS, etc.)
+- Connection: Defined in config/queue.php
+- Failed job handling: Database table
+
+QUEUED JOBS:
+- Email sending (all notification emails)
+- Certificate generation
+- State submission processing
+- PDF generation
+- Report generation
+- Data export requests
+
+QUEUE WORKERS:
+- Command: php artisan queue:work
+- Supervisor recommended for production
+- Retry logic for failed jobs
+- Job timeout configuration
+
+================================================================================
+17. EVENT SYSTEM
+================================================================================
+
+EVENTS (/app/Events/):
+
+UserEnrolled.php
+- Triggered: When user enrolls in a course
+- Payload: UserCourseEnrollment model
+- Listeners: SendEnrollmentConfirmation
+
+PaymentApproved.php
+- Triggered: When payment is approved
+- Payload: Payment model
+- Listeners: SendPaymentApprovedEmail
+
+CourseCompleted.php
+- Triggered: When user completes a course
+- Payload: UserCourseEnrollment model
+- Listeners: SendCourseCompletedEmail
+
+CertificateGenerated.php
+- Triggered: When certificate is generated
+- Payload: Certificate model
+- Listeners: SendCertificateEmail
+
+EVENT LISTENERS (/app/Listeners/):
+- SendEnrollmentConfirmation: Sends enrollment email
+- SendPaymentApprovedEmail: Sends payment receipt
+- SendCourseCompletedEmail: Sends completion notification
+- SendCertificateEmail: Sends certificate delivery email
+
+
+================================================================================
+18. OBSERVER PATTERN
+================================================================================
+
+MODEL OBSERVERS (/app/Observers/):
+
+EnrollmentObserver.php
+- Observes: UserCourseEnrollment model
+- Events:
+  * created: Fires UserEnrolled event
+  * updated: Checks for completion status changes
+  * deleted: Cleanup related records
+- Purpose: Manages enrollment lifecycle and triggers notifications
+
+PaymentObserver.php
+- Observes: Payment model
+- Events:
+  * created: Generates invoice automatically
+  * updated: Updates invoice status, fires PaymentApproved event
+  * deleted: Handles refund logic
+- Purpose: Automates invoice generation and payment processing
+
+OBSERVER REGISTRATION:
+- Registered in: AppServiceProvider.php
+- Boot method: Model::observe(Observer::class)
+
+================================================================================
+19. VALIDATION RULES
+================================================================================
+
+CUSTOM VALIDATION RULES (/app/Rules/):
+
+CitationNumber.php
+- Validates citation number format
+- State-specific validation logic
+- Format checking and verification
+
+FloridaDriverLicense.php
+- Validates Florida driver license format
+- Checksum verification
+- Format: Letter + 12 digits
+
+BUILT-IN VALIDATION:
+- Email validation with confirmation
+- Password complexity requirements (min 8, uppercase, lowercase, number, special)
+- Phone number format (3-3-4 pattern)
+- Zip code format (5 or 5+4)
+- Date validation (birth date, due date)
+- Regex patterns for names, cities
+- Unique email validation
+
+REGISTRATION VALIDATION (4 Steps):
+Step 1: Name, email, password
+Step 2: Address, license, court, citation info
+Step 3: 10 security questions (numeric answers)
+Step 4: Terms agreement
+
+================================================================================
+20. MAIL SYSTEM
+================================================================================
+
+MAILABLE CLASSES (/app/Mail/):
+
+WelcomeMail.php
+- Sent: After successful registration
+- Content: Welcome message, getting started info
+
+EnrollmentConfirmation.php
+- Sent: After course enrollment
+- Content: Course details, access instructions
+
+CertificateDeliveryMail.php
+- Sent: When certificate is ready
+- Content: Certificate download link, verification info
+
+CertificateGenerated.php
+- Sent: Certificate generation notification
+- Content: Certificate details, next steps
+
+CertificateSubmission.php
+- Sent: After state submission
+- Content: Submission confirmation, tracking info
+
+TicketMail.php
+- Sent: Support ticket notifications
+- Content: Ticket details, response info
+
+EMAIL CONFIGURATION:
+- Driver: SMTP (configurable)
+- Queue: All emails queued for async sending
+- Templates: Blade-based email templates
+- Styling: Inline CSS for email compatibility
+
+
+================================================================================
+21. NOTIFICATION SYSTEM
+================================================================================
+
+NOTIFICATION CLASSES (/app/Notifications/):
+
+CertificateGeneratedNotification.php
+- Channel: Database, Mail
+- Trigger: Certificate generation
+- Content: Certificate ready notification
+
+CourseCompletedNotification.php
+- Channel: Database, Mail
+- Trigger: Course completion
+- Content: Completion congratulations, next steps
+
+EnrollmentConfirmation.php
+- Channel: Database, Mail
+- Trigger: Course enrollment
+- Content: Enrollment details, course access
+
+PaymentApprovedNotification.php
+- Channel: Database, Mail
+- Trigger: Payment approval
+- Content: Payment receipt, invoice link
+
+NOTIFICATION CHANNELS:
+- Database: Stored in notifications table
+- Mail: Email delivery
+- Push: Push notification support (PWA)
+
+NOTIFICATION SETTINGS:
+- User preferences stored in notification_settings table
+- Per-notification type preferences
+- Email/Push toggle options
+
+================================================================================
+22. STATE INTEGRATION SYSTEMS
+================================================================================
+
+FLORIDA DICDS (Driver Improvement Course Data System):
+
+Components:
+- FloridaDicdsSoapService: SOAP API integration
+- DicdsController: Main integration controller
+- DicdsCertificateOrder: Order management
+- DicdsOrderAmendment: Order modifications
+- DicdsOrderReceipt: Receipt generation
+
+Features:
+- Certificate ordering from state
+- Inventory management
+- Order amendments
+- Receipt generation
+- Compliance reporting
+- Audit trail
+
+FLORIDA FLHSMV (Highway Safety and Motor Vehicles):
+
+Components:
+- FlhsmvSoapService: SOAP API integration
+- FlhsmvController: Submission management
+- FlhsmvSubmission: Submission records
+- FlhsmvSubmissionQueue: Queued submissions
+- FlhsmvSubmissionError: Error tracking
+
+Features:
+- Certificate submission to state
+- Completion reporting
+- Student data transmission
+- Error handling and retry logic
+- Submission status tracking
+
+MISSOURI INTEGRATION:
+
+Components:
+- MissouriController: Missouri-specific logic
+- MissouriForm4444: Form generation
+- MissouriSubmissionTracker: Submission tracking
+
+Features:
+- Form 4444 generation
+- State-specific quiz banks
+- Course structure compliance
+- Submission tracking
+
+STATE SUBMISSION QUEUE:
+
+Components:
+- StateSubmissionQueue: Queue management
+- StateSubmissionLog: Submission history
+- StateSubmissionController: Queue processing
+
+Features:
+- Automated submission processing
+- Retry logic for failed submissions
+- Status tracking (pending, processing, completed, failed)
+- Manual retry capability
+- Batch processing
+
+
+================================================================================
+23. PAYMENT PROCESSING SYSTEM
+================================================================================
+
+PAYMENT GATEWAYS:
+
+Stripe Integration:
+- Service: StripePaymentService.php
+- Model: StripePayment.php
+- Features:
+  * Payment intent creation
+  * Card processing
+  * Webhook handling
+  * Refund processing
+  * 3D Secure support
+
+PayPal Integration:
+- Service: PayPalPaymentService.php
+- Model: PayPalPayment.php
+- Features:
+  * Order creation
+  * Payment capture
+  * Refund handling
+  * IPN (Instant Payment Notification)
+
+Dummy Gateway (Testing):
+- Used for development/testing
+- Simulates payment flow
+- No actual charges
+
+PAYMENT FLOW:
+1. User selects course
+2. Redirected to payment page
+3. Selects payment method (Stripe/PayPal/Dummy)
+4. Payment processed
+5. PaymentObserver creates invoice
+6. PaymentApproved event fired
+7. Enrollment created/activated
+8. Confirmation email sent
+
+PAYMENT MODELS:
+- Payment: Main payment record
+- FloridaPayment: Florida-specific payments with assessment fees
+- PaymentTransaction: Transaction details
+- PaymentRefund: Refund records
+- Invoice: Generated invoices
+- Refund: Refund management
+
+INVOICE SYSTEM:
+- Automatic generation via PaymentObserver
+- PDF generation capability
+- Email delivery
+- Download functionality
+- Tax calculation support
+- Line item management
+
+COUPON SYSTEM:
+- Coupon: Discount codes
+- CouponUsage: Usage tracking
+- Features:
+  * Percentage or fixed amount discounts
+  * Usage limits
+  * Expiration dates
+  * Single-use or multi-use
+  * Course-specific or global
+
+FLORIDA PRICING:
+- FloridaPricingRule: State-specific pricing
+- FloridaFeeRemittance: Fee remittance to state
+- Assessment fee tracking
+- Remittance reporting
+
+================================================================================
+24. CERTIFICATE SYSTEM
+================================================================================
+
+CERTIFICATE GENERATION:
+
+Services:
+- CertificatePdfService: Basic PDF generation
+- EnhancedCertificatePdfService: Advanced features
+- CertificateAccessService: Access control
+
+Models:
+- Certificate: Generic certificates
+- FloridaCertificate: Florida-specific with DICDS integration
+- CertificateTemplate: Template management
+- CertificateQrCode: QR code generation
+
+Features:
+- PDF generation with DomPDF
+- State-specific templates
+- QR code for verification
+- Verification hash generation
+- Digital signatures
+- State stamps
+
+CERTIFICATE WORKFLOW:
+1. Course completion detected
+2. CourseCompleted event fired
+3. Certificate generated
+4. CertificateGenerated event fired
+5. Email notification sent
+6. Available for download
+7. Optional: Submit to state
+8. Access revoked after download (configurable)
+
+VERIFICATION SYSTEM:
+- Public verification via hash
+- QR code scanning
+- Verification logging
+- Certificate lookup
+- Fraud prevention
+
+INVENTORY MANAGEMENT:
+- CertificateInventory: Stock tracking
+- Certificate ordering from state
+- Usage tracking
+- Low stock alerts
+- Inventory reports
+
+DISTRIBUTION:
+- CertificateDistribution: Distribution tracking
+- Email delivery
+- Download tracking
+- Print management
+
+
+================================================================================
+25. COURSE SYSTEM
+================================================================================
+
+COURSE STRUCTURE:
+
+Models:
+- Course: Generic courses
+- FloridaCourse: Florida-specific courses
+- Chapter: Course chapters
+- CourseChapter: Chapter relationships
+- CourseContent: Content storage
+- CourseMedia: Media files (videos, images, documents)
+
+Course Types:
+- BDI (Basic Driver Improvement)
+- ADI (Advanced Driver Improvement)
+- TLSAE (Traffic Law and Substance Abuse Education)
+- Defensive Driving
+- Aggressive Driving
+
+Delivery Types:
+- Internet (primary)
+- In Person
+- CD-Rom
+- Video
+- DVD
+
+CHAPTER SYSTEM:
+
+Features:
+- Sequential chapter progression
+- Chapter locking until previous completed
+- Chapter timers for compliance
+- Chapter quizzes
+- Progress tracking
+- Media embedding
+
+Models:
+- Chapter: Chapter content
+- ChapterProgress: User progress per chapter
+- ChapterQuestion: Chapter quiz questions
+- ChapterTimer: Timer requirements
+
+QUIZ SYSTEM:
+
+Models:
+- Question: Quiz questions
+- QuestionBank: Question repository
+- QuizAttempt: Quiz attempt tracking
+- MissouriQuizBank: Missouri-specific questions
+
+Features:
+- Multiple choice questions
+- Randomized question selection
+- Passing score requirements
+- Unlimited attempts (configurable)
+- Immediate feedback
+- Score tracking
+
+FINAL EXAM:
+
+Features:
+- Comprehensive final exam
+- Minimum passing score
+- Limited attempts (configurable)
+- Randomized questions
+- Time limits
+- Certificate generation upon passing
+
+COURSE TIMER SYSTEM:
+
+Service: CourseTimerService.php
+Models:
+- CourseTimer: Course-level timers
+- ChapterTimer: Chapter-level timers
+- TimerSession: Active timer sessions
+
+Features:
+- Minimum time requirements
+- Pause/resume capability
+- Session tracking
+- Compliance enforcement
+- Anti-cheating measures
+- Timer validation
+
+PROGRESS TRACKING:
+
+Models:
+- UserCourseProgress: Overall course progress
+- ChapterProgress: Chapter-level progress
+
+Tracked Data:
+- Chapters completed
+- Quiz scores
+- Time spent
+- Last accessed
+- Completion percentage
+- Final exam attempts
+
+
+================================================================================
+26. ENROLLMENT SYSTEM
+================================================================================
+
+ENROLLMENT MODEL:
+- UserCourseEnrollment: Main enrollment record
+
+Enrollment Status:
+- pending: Awaiting payment
+- active: Currently enrolled
+- completed: Course finished
+- expired: Enrollment expired
+- suspended: Temporarily suspended
+- cancelled: Cancelled enrollment
+
+ENROLLMENT WORKFLOW:
+1. User selects course
+2. Payment processed
+3. Enrollment created (or activated if pending)
+4. UserEnrolled event fired
+5. Confirmation email sent
+6. Course access granted
+7. Progress tracking begins
+
+ENROLLMENT FEATURES:
+- Payment integration
+- Access control
+- Expiration dates
+- Access revocation after certificate download
+- Enrollment history
+- Re-enrollment capability
+
+ENROLLMENT OBSERVER:
+- Handles enrollment lifecycle
+- Fires events on status changes
+- Manages related records
+- Triggers notifications
+
+================================================================================
+27. USER MANAGEMENT SYSTEM
+================================================================================
+
+USER MODEL:
+- Extends Laravel Authenticatable
+- Implements JWTSubject for JWT auth
+
+User Fields:
+- Basic: first_name, last_name, email, password
+- Contact: phone, address, city, state, zip, mailing_address
+- License: driver_license, license_state, license_class
+- Court: court_selected, citation_number, due_date
+- Demographics: gender, birth_date
+- Security: 10 security questions
+- DICDS: dicds_user_id, dicds_password
+- Status: account_locked, lock_reason, locked_at
+
+USER ROLES:
+1. Student (role_id: 4)
+   - Take courses
+   - View certificates
+   - Manage profile
+   - Submit support tickets
+
+2. Instructor (role_id: 3)
+   - Manage assigned courses
+   - View student progress
+   - Grade assignments
+
+3. School Admin (role_id: 2)
+   - Manage school operations
+   - View school reports
+   - Manage instructors
+
+4. Super Admin (role_id: 1)
+   - Full system access
+   - User management
+   - System configuration
+   - All admin features
+
+USER FEATURES:
+- Multi-step registration (4 steps)
+- Email verification
+- Password reset
+- Profile management
+- Security questions
+- Account locking/unlocking
+- Device session tracking
+- Login attempt tracking
+- Password history
+
+ACCESSIBILITY:
+- UserAccessibilityPreference: User preferences
+- FloridaUserAccessibility: Florida-specific settings
+- Features:
+  * Font size adjustment
+  * High contrast mode
+  * Screen reader support
+  * Keyboard navigation
+
+
+================================================================================
+28. SECURITY SYSTEM
+================================================================================
+
+AUTHENTICATION:
+- JWT-based API authentication
+- Session-based web authentication
+- Token refresh mechanism
+- Multi-device support
+
+AUTHORIZATION:
+- Role-based access control (RBAC)
+- Permission checking
+- Resource ownership verification
+- Middleware protection
+
+SECURITY FEATURES:
+
+Login Security:
+- Login attempt tracking (LoginAttempt model)
+- Account locking after failed attempts
+- IP tracking
+- Device fingerprinting
+- Session management
+
+Password Security:
+- Password history (PasswordHistory model)
+- Complexity requirements
+- Hashing with bcrypt
+- Password reset functionality
+- Security questions
+
+Session Security:
+- Device session tracking (DeviceSession model)
+- Concurrent session management
+- Session timeout
+- CSRF protection
+
+API Security:
+- API token management (ApiToken model)
+- Rate limiting
+- Token expiration
+- Scope-based permissions
+
+Audit & Logging:
+- AuditLog: System-wide audit trail
+- SecurityLog: Security events
+- FloridaSecurityLog: Florida-specific security
+- FloridaAuditTrail: Florida audit trail
+- LoginAttempt tracking
+- Action logging
+
+Data Protection:
+- GDPR compliance features
+- Data export requests (DataExportRequest model)
+- User consent tracking (UserLegalConsent model)
+- Data encryption
+- Secure file storage
+
+Copyright Protection:
+- CopyrightProtectionLog: Copyright violation tracking
+- Content protection measures
+- Download restrictions
+- Watermarking
+
+================================================================================
+29. COMPLIANCE & LEGAL SYSTEM
+================================================================================
+
+COMPLIANCE MANAGEMENT:
+
+Models:
+- ComplianceRule: Compliance rules
+- FloridaComplianceCheck: Florida compliance checks
+- FloridaComplianceReport: Compliance reports
+- LegalComplianceSetting: Compliance settings
+
+Features:
+- State-specific compliance rules
+- Automated compliance checking
+- Compliance reporting
+- Violation tracking
+- Remediation workflows
+
+LEGAL DOCUMENTS:
+
+Models:
+- LegalDocument: Legal documents (Terms, Privacy Policy, etc.)
+- UserLegalConsent: User consent tracking
+
+Features:
+- Version control
+- Consent tracking
+- Acceptance logging
+- Document updates
+- User notification on changes
+
+PRIVACY & GDPR:
+- Data export functionality
+- Right to be forgotten
+- Consent management
+- Data retention policies
+- Privacy policy management
+
+COPYRIGHT PROTECTION:
+- Content protection
+- Download tracking
+- Violation logging
+- Enforcement actions
+
+
+================================================================================
+30. REPORTING & ANALYTICS SYSTEM
+================================================================================
+
+REPORTING:
+
+Models:
+- Report: Generated reports
+- FloridaComplianceReport: Florida compliance reports
+- SchoolActivityReport: School activity reports
+
+Report Types:
+- Enrollment reports
+- Completion reports
+- Payment reports
+- Certificate reports
+- Compliance reports
+- User activity reports
+- Course performance reports
+
+Features:
+- Scheduled report generation
+- Custom date ranges
+- Export to PDF/CSV
+- Email delivery
+- Report templates
+
+DASHBOARD:
+
+Controllers:
+- DashboardController: Main dashboard
+- FloridaDashboardController: Florida dashboard
+
+Dashboard Widgets:
+- DashboardWidget model for customization
+- Real-time statistics
+- Charts and graphs
+- Quick actions
+- Recent activity
+
+Statistics Tracked:
+- Total enrollments
+- Active students
+- Completed courses
+- Revenue metrics
+- Certificate issuance
+- Payment transactions
+- Support tickets
+- Compliance status
+
+ANALYTICS:
+
+Models:
+- FloridaMobileAnalytics: Mobile usage tracking
+- DeviceSession: Device tracking
+- LoginAttempt: Login analytics
+
+Tracked Metrics:
+- User engagement
+- Course completion rates
+- Quiz performance
+- Time spent per chapter
+- Device usage
+- Browser statistics
+- Geographic data
+- Conversion rates
+
+================================================================================
+31. SUPPORT SYSTEM
+================================================================================
+
+SUPPORT TICKETS:
+
+Models:
+- SupportTicket: Main ticket model
+- SupportTicketReply: Ticket responses
+- TicketRecipient: Email recipients for tickets
+- DicdsHelpTicket: DICDS-specific tickets
+
+Ticket Status:
+- open: New ticket
+- in_progress: Being worked on
+- waiting_customer: Awaiting customer response
+- resolved: Issue resolved
+- closed: Ticket closed
+
+Features:
+- Ticket creation by users
+- Email notifications
+- Reply threading
+- Status tracking
+- Priority levels
+- Assignment to staff
+- Ticket history
+
+TICKET RECIPIENTS:
+- Configurable email recipients
+- Role-based routing
+- Active/inactive toggle
+- Multiple recipients per ticket type
+
+FAQ SYSTEM:
+
+Model: Faq
+
+Features:
+- Category organization
+- Order management
+- State-specific FAQs
+- Search functionality
+- Admin management
+
+FAQ Categories:
+- General
+- Registration
+- Courses
+- Payments
+- Certificates
+- Technical Support
+
+
+================================================================================
+32. SCHOOL & INSTRUCTOR MANAGEMENT
+================================================================================
+
+SCHOOL MANAGEMENT:
+
+Models:
+- School: School records
+- FloridaSchool: Florida-specific schools
+- SchoolCourse: School-course relationships
+- SchoolActivityReport: Activity tracking
+- SchoolManagementLog: Management actions
+
+Features:
+- School registration
+- Course assignment
+- Instructor management
+- Activity reporting
+- Compliance tracking
+- Performance metrics
+
+INSTRUCTOR MANAGEMENT:
+
+Models:
+- Instructor: Instructor records
+- FloridaInstructor: Florida-specific instructors
+- InstructorCourseAssignment: Course assignments
+
+Features:
+- Instructor profiles
+- Course assignments
+- Student management
+- Performance tracking
+- Certification tracking
+
+DICDS SCHOOL FEATURES:
+- DICDS integration
+- State reporting
+- Certificate ordering
+- Compliance management
+
+================================================================================
+33. LOCATION MANAGEMENT
+================================================================================
+
+LOCATION MODELS:
+
+State: US states
+- State code
+- State name
+- Active status
+
+County: Counties within states
+- County name
+- State relationship
+- Court count
+
+Court: Courts within counties
+- Court name
+- County relationship
+- Address information
+- Contact details
+
+StateStamp: State-specific stamps for certificates
+- State
+- Stamp image
+- Active status
+- Usage tracking
+
+FEATURES:
+- Hierarchical structure (State > County > Court)
+- Court selection during registration
+- Citation tracking
+- State-specific configurations
+- Stamp management for certificates
+
+================================================================================
+34. REVIEW SYSTEM
+================================================================================
+
+MODEL: Review
+
+Features:
+- Course reviews by students
+- Rating system (1-5 stars)
+- Written feedback
+- Review moderation
+- Display on course pages
+- Required before certificate generation
+
+Review Fields:
+- User
+- Enrollment
+- Rating
+- Comments
+- Created date
+- Moderation status
+
+Review Workflow:
+1. Course completion
+2. Review prompt
+3. User submits review
+4. Review stored
+5. Certificate generation proceeds
+
+
+================================================================================
+35. PWA (PROGRESSIVE WEB APP) FEATURES
+================================================================================
+
+CONTROLLERS:
+- PWAController: Main PWA functionality
+- FloridaPWAController: Florida-specific PWA features
+
+PWA FEATURES:
+- Offline capability
+- App manifest generation
+- Service worker
+- Push notifications
+- Add to home screen
+- Theme customization
+- Mobile optimization
+
+MOBILE OPTIMIZATION:
+
+Models:
+- FloridaMobileAnalytics: Mobile usage tracking
+- DeviceSession: Device tracking
+
+Features:
+- Responsive design
+- Touch-friendly interface
+- Mobile-specific layouts
+- Performance optimization
+- Reduced data usage
+
+PUSH NOTIFICATIONS:
+
+Model: PushNotification
+
+Features:
+- Browser push notifications
+- User subscription management
+- Notification scheduling
+- Delivery tracking
+- Click tracking
+
+================================================================================
+36. EMAIL SYSTEM DETAILS
+================================================================================
+
+EMAIL TEMPLATES:
+
+Models:
+- EmailTemplate: Generic templates
+- FloridaEmailTemplate: Florida-specific templates
+
+Template Types:
+- Welcome email
+- Enrollment confirmation
+- Payment receipt
+- Course completion
+- Certificate delivery
+- Password reset
+- Support ticket
+- State submission confirmation
+
+EMAIL LOGGING:
+
+Models:
+- EmailLog: Email sending logs
+- FloridaEmailLog: Florida-specific logs
+
+Logged Data:
+- Recipient
+- Subject
+- Template used
+- Sent timestamp
+- Delivery status
+- Error messages
+- Open tracking
+- Click tracking
+
+EMAIL FEATURES:
+- Queue-based sending
+- Template variables
+- HTML and plain text
+- Attachment support
+- Retry logic for failures
+- Bounce handling
+- Unsubscribe management
+
+================================================================================
+37. NOTIFICATION PREFERENCES
+================================================================================
+
+MODELS:
+- NotificationSetting: User notification preferences
+- FloridaNotificationSetting: Florida-specific settings
+
+Notification Types:
+- Email notifications
+- Push notifications
+- SMS notifications (if enabled)
+- In-app notifications
+
+Configurable Notifications:
+- Enrollment confirmations
+- Payment receipts
+- Course reminders
+- Certificate ready
+- Support ticket updates
+- System announcements
+- Marketing communications
+
+User Controls:
+- Enable/disable per notification type
+- Frequency settings
+- Quiet hours
+- Delivery method preferences
+

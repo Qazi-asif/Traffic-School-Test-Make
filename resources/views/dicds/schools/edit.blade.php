@@ -1,0 +1,82 @@
+@extends('layouts.dicds')
+@section('title', 'Edit School')
+@section('content')
+<div class="login-container">
+    <div class="header-banner">
+        <div class="florida-seal">Florida Department of<br><strong>HIGHWAY SAFETY & MOTOR VEHICLES</strong></div>
+        <div class="tagline">"Making Highways Safe"</div>
+    </div>
+
+    <h1>Edit School</h1>
+
+    <form method="POST" action="{{ route('dicds.schools.update', $school->id) }}">
+        @csrf
+        @method('PUT')
+        
+        <div class="form-group">
+            <label>School Name *</label>
+            <input type="text" name="school_name" class="form-control" value="{{ $school->school_name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Address *</label>
+            <textarea name="address" class="form-control" rows="3" required>{{ $school->address }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>City *</label>
+            <input type="text" name="city" class="form-control" value="{{ $school->city }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>State *</label>
+            <input type="text" name="state" class="form-control" value="{{ $school->state }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Zip Code *</label>
+            <input type="text" name="zip_code" class="form-control" value="{{ $school->zip_code }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Phone *</label>
+            <input type="text" name="phone" class="form-control" value="{{ $school->phone }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Fax</label>
+            <input type="text" name="fax" class="form-control" value="{{ $school->fax }}">
+        </div>
+
+        <div class="form-group">
+            <label>Email *</label>
+            <input type="email" name="email" class="form-control" value="{{ $school->email }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Contact Person</label>
+            <input type="text" name="contact_person" class="form-control" value="{{ $school->contact_person }}">
+        </div>
+
+        <div class="form-group">
+            <label>Status</label>
+            <select name="status" class="form-control">
+                <option value="Active" {{ $school->status == 'Active' ? 'selected' : '' }}>Active</option>
+                <option value="Inactive" {{ $school->status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="disable_certificates" value="1" {{ $school->disable_certificates ? 'checked' : '' }}>
+                Disable School's ability to print certificates
+            </label>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button type="submit" class="btn">Update School</button>
+            <a href="{{ route('dicds.schools.maintain') }}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+@endsection

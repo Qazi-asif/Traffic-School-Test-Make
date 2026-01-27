@@ -1,0 +1,5 @@
+Files Changed for Free Response Quiz Grading Dropdown:
+
+1. resources/views/admin/free-response-quiz/submissions.blade.php
+   - Changed grade input from number field (0-100) to dropdown with "Correct" and "Incorrect" options
+   - Updated validation logic to check for dropdown selection instead of numeric range
