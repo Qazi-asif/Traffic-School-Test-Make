@@ -5,33 +5,38 @@ namespace App\Models\Missouri;
 use App\Models\UserCourseEnrollment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Course extends Model
 {
     protected $table = 'missouri_courses';
 
     protected $fillable = [
-        'title',
-        'description',
-        'course_details',
-        'state_code',
-        'min_pass_score',
-        'total_duration',
-        'price',
-        'form_4444_template',
-        'is_active',
+        'course_id',
+        'missouri_course_code',
         'course_type',
-        'delivery_type',
+        'form_4444_template',
         'requires_form_4444',
+        'required_hours',
+        'max_completion_days',
+        'approval_number',
+        'approved_date',
+        'expiration_date',
+        'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'requires_form_4444' => 'boolean',
-        'price' => 'decimal:2',
-        'min_pass_score' => 'integer',
-        'total_duration' => 'integer',
+        'required_hours' => 'decimal:2',
+        'approved_date' => 'date',
+        'expiration_date' => 'date',
     ];
+
+    public function baseCourse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Course::class, 'course_id');
+    }
 
     public function chapters(): HasMany
     {

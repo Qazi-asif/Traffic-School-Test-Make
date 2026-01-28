@@ -1,0 +1,18 @@
+{
+    "status": "success",
+    "message": "JSON is working correctly",
+    "timestamp": "2026-01-28 19:55:36",
+    "maintenance_mode": "disabled",
+    "test_endpoints": {
+        "web_courses": {
+            "status": 200,
+            "is_json": true,
+            "content_preview": "Valid JSON"
+        },
+        "florida_courses": {
+            "status": 200,
+            "is_json": true,
+            "content_preview": "Valid JSON"
+        }
+    }
+}

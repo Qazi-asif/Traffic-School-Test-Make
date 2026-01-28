@@ -21,6 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => RoleMiddleware::class,
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'super-admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+            'state' => \App\Http\Middleware\StateMiddleware::class,
+            'state.access' => \App\Http\Middleware\StateAccessMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

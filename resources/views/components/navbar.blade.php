@@ -65,7 +65,7 @@
                     </a>
                 </li>
                 
-                @if(auth()->check() && auth()->user()->role && (auth()->user()->role->slug === 'super-admin' || auth()->user()->role->slug === 'admin'))
+                @if(auth()->check() && auth()->user()->isAdmin())
                     <hr style="border-color: var(--border) !important; opacity: 0.3;">
                     <li class="nav-item">
                         <small style="color: var(--text-secondary) !important; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;" class="px-3">ADMIN PANEL</small>

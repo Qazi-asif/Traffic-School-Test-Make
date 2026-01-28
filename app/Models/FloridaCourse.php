@@ -11,6 +11,7 @@ class FloridaCourse extends Model
         'description',
         'course_details',
         'state_code',
+        'state', // Add this field since the database table uses 'state'
         'min_pass_score',
         'duration',
         'price',

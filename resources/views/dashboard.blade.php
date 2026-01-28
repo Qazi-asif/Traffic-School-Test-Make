@@ -246,7 +246,7 @@
                                 Good {{ date('H') < 12 ? 'Morning' : (date('H') < 18 ? 'Afternoon' : 'Evening') }}, 
                                 {{ auth()->user()->first_name }}!
                             </h2>
-                            <p class="mb-1 opacity-75">{{ auth()->user()->role->name }} Dashboard</p>
+                            <p class="mb-1 opacity-75">{{ auth()->user()->getRoleName() }} Dashboard</p>
                             <p class="mb-0 small opacity-50">{{ now()->format('l, F j, Y') }}</p>
                         </div>
                     </div>
@@ -268,7 +268,11 @@
         </div>
 
         <div class="container-main">
-            @if(auth()->user()->role->slug === 'student')
+            @php
+                $userRole = auth()->user()->getRoleSlug();
+            @endphp
+            
+            @if($userRole === 'student')
             <!-- Student Dashboard -->
             <div class="row mb-3">
                 <div class="col-12">
@@ -600,7 +604,7 @@
 
     <!-- Quick Actions FAB -->
     <div class="quick-actions">
-        @if(auth()->user()->role->slug === 'student')
+        @if($userRole === 'student')
         <button class="fab" onclick="window.location.href='/courses'" title="Browse Courses">
             <i class="fas fa-search"></i>
         </button>
@@ -627,7 +631,7 @@
         });
 
         async function loadDashboardData() {
-            const userRole = '{{ auth()->user()->role->slug }}';
+            const userRole = '{{ $userRole }}';
             
             if (userRole === 'student') {
                 await loadStudentData();
@@ -896,20 +900,31 @@
 
     <!-- Announcement Modal -->
     @php
-        $activeAnnouncements = \App\Models\Announcement::where('is_active', true)
-            ->where(function($query) {
-                $query->where('target_audience', 'all')
-                      ->orWhere('target_audience', auth()->user()->role->slug === 'student' ? 'student' : 'college');
-            })
-            ->where(function($query) {
-                $query->whereNull('start_date')
-                      ->orWhere('start_date', '<=', now());
-            })
-            ->where(function($query) {
-                $query->whereNull('end_date')
-                      ->orWhere('end_date', '>=', now());
-            })
-            ->get();
+        $userRole = auth()->user()->getRoleSlug();
+        $activeAnnouncements = collect(); // Empty collection as fallback
+        
+        // Only try to load announcements if the Announcement model exists and table exists
+        if (class_exists('\App\Models\Announcement')) {
+            try {
+                $activeAnnouncements = \App\Models\Announcement::where('is_active', true)
+                    ->where(function($query) use ($userRole) {
+                        $query->where('target_audience', 'all')
+                              ->orWhere('target_audience', $userRole === 'student' ? 'student' : 'college');
+                    })
+                    ->where(function($query) {
+                        $query->whereNull('start_date')
+                              ->orWhere('start_date', '<=', now());
+                    })
+                    ->where(function($query) {
+                        $query->whereNull('end_date')
+                              ->orWhere('end_date', '>=', now());
+                    })
+                    ->get();
+            } catch (\Exception $e) {
+                // If there's any error (like table doesn't exist), just use empty collection
+                $activeAnnouncements = collect();
+            }
+        }
     @endphp
 
     @foreach($activeAnnouncements as $announcement)

@@ -14,26 +14,39 @@ use Illuminate\Support\Facades\DB;
 
 class CoursePlayerController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth');
-    }
-
     /**
      * Show available Missouri courses
      */
     public function index()
     {
-        $user = Auth::user();
-        $courses = Course::where('is_active', true)->get();
-        
-        // Get user's enrollments
-        $enrollments = Enrollment::where('user_id', $user->id)
-            ->with('course')
-            ->get()
-            ->keyBy('course_id');
+        try {
+            $user = Auth::user();
+            
+            // Get Missouri courses
+            $courses = Course::where('is_active', true)->get();
+            
+            // Get user's enrollments if user is authenticated
+            $enrollments = collect();
+            if ($user) {
+                try {
+                    $enrollments = Enrollment::where('user_id', $user->id)
+                        ->with('course')
+                        ->get()
+                        ->keyBy('course_id');
+                } catch (\Exception $e) {
+                    $enrollments = collect();
+                }
+            }
 
-        return view('student.missouri.courses.index', compact('courses', 'enrollments'));
+            return view('student.missouri.dashboard', compact('courses', 'enrollments', 'user'));
+        } catch (\Exception $e) {
+            return view('student.missouri.dashboard', [
+                'courses' => collect(),
+                'enrollments' => collect(),
+                'user' => Auth::user(),
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**

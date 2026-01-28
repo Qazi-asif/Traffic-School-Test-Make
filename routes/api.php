@@ -246,33 +246,51 @@ Route::middleware('web')->post('/push-notification', function (Request $request)
 });
 
 Route::middleware('web')->get('/check-notifications', function () {
-    if (! auth()->check()) {
-        return response()->json(['debug' => 'Not authenticated']);
+    try {
+        if (!auth()->check()) {
+            return response()->json(['debug' => 'Not authenticated'], 200);
+        }
+
+        $user = auth()->user();
+        if (!$user || !$user->email) {
+            return response()->json(['debug' => 'Invalid user'], 200);
+        }
+
+        // Check if push_notifications table exists
+        if (!Schema::hasTable('push_notifications')) {
+            return response()->json(['debug' => 'Notifications table not found'], 200);
+        }
+
+        // Check if PushNotification model exists
+        if (!class_exists('App\\Models\\PushNotification')) {
+            return response()->json(['debug' => 'PushNotification model not found'], 200);
+        }
+
+        // Get unread notifications for this user
+        $notification = \App\Models\PushNotification::where('user_email', $user->email)
+            ->where('is_read', false)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if ($notification) {
+            \Log::info('Found notification for user: ' . $user->email, $notification->toArray());
+
+            // Mark as read
+            $notification->update(['is_read' => true]);
+
+            return response()->json([
+                'type' => $notification->type,
+                'title' => $notification->title,
+                'message' => $notification->message,
+            ]);
+        }
+
+        return response()->json(['debug' => 'No notifications']);
+        
+    } catch (Exception $e) {
+        \Log::error('Notification check error: ' . $e->getMessage());
+        return response()->json(['debug' => 'Error: ' . $e->getMessage()], 200);
     }
-
-    $user = auth()->user();
-    $userEmail = $user->email;
-
-    // Get unread notifications for this user
-    $notification = \App\Models\PushNotification::where('user_email', $userEmail)
-        ->where('is_read', false)
-        ->orderBy('created_at', 'desc')
-        ->first();
-
-    if ($notification) {
-        \Log::info('Found notification for user: '.$userEmail, $notification->toArray());
-
-        // Mark as read
-        $notification->update(['is_read' => true]);
-
-        return response()->json([
-            'type' => $notification->type,
-            'title' => $notification->title,
-            'message' => $notification->message,
-        ]);
-    }
-
-    return response()->json(['debug' => 'No notification found for '.$userEmail]);
 });
 
 // Florida Security Dashboard

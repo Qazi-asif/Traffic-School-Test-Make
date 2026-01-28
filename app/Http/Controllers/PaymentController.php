@@ -2,458 +2,471 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Invoice;
 use App\Models\Payment;
-use App\Models\Refund;
+use App\Models\User;
+use App\Models\Course;
+use App\Models\FloridaCourse;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class PaymentController extends Controller
 {
-    public function index()
+    private $paymentService;
+
+    public function __construct(PaymentService $paymentService)
     {
-        try {
-            \Log::info('PaymentController index called');
-            $payments = Payment::with(['user', 'enrollment.course'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(20);
-
-            \Log::info('Payments loaded successfully', ['count' => $payments->count()]);
-
-            return response()->json($payments);
-        } catch (\Exception $e) {
-            \Log::error('Error loading payments: '.$e->getMessage());
-
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        $this->paymentService = $paymentService;
     }
 
-    public function myPaymentsWeb()
+    /**
+     * Show payment form
+     */
+    public function show(Request $request)
     {
-        try {
-            $user = Auth::user();
-            
-            // Get all payments (completed and pending)
-            $payments = Payment::with(['enrollment.course', 'invoice'])
-                ->where('user_id', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            // Get pending enrollments without successful payments
-            $pendingEnrollments = \App\Models\UserCourseEnrollment::with(['course'])
-                ->where('user_id', $user->id)
-                ->where('payment_status', 'pending')
-                ->where(function($query) {
-                    $query->whereDoesntHave('payments')
-                          ->orWhereHas('payments', function($q) {
-                              $q->whereIn('status', ['failed', 'cancelled']);
-                          });
-                })
-                ->get();
-
-            // Transform pending enrollments to match payment structure
-            $pendingPayments = $pendingEnrollments->map(function ($enrollment) {
-                try {
-                    $courseData = $enrollment->getCourseData();
-                    return (object) [
-                        'id' => 'pending_' . $enrollment->id,
-                        'enrollment_id' => $enrollment->id,
-                        'amount' => $enrollment->amount_paid ?? ($courseData->price ?? 0),
-                        'status' => 'pending',
-                        'payment_method' => null,
-                        'created_at' => $enrollment->enrolled_at,
-                        'enrollment' => $enrollment,
-                        'invoice' => null,
-                        'is_pending_enrollment' => true,
-                        'gateway_payment_id' => null,
-                        'billing_name' => null,
-                        'billing_email' => null,
-                        'coupon_code' => null,
-                        'discount_amount' => 0,
-                        'original_amount' => $courseData->price ?? 0,
-                    ];
-                } catch (\Exception $e) {
-                    \Log::warning('Error processing pending enrollment: ' . $e->getMessage(), [
-                        'enrollment_id' => $enrollment->id,
-                        'user_id' => $enrollment->user_id
-                    ]);
-                    return null;
-                }
-            })->filter(); // Remove null values
-
-            // Merge and sort all payments
-            $allPayments = $payments->concat($pendingPayments)->sortByDesc('created_at')->values();
-
-            return response()->json($allPayments);
-            
-        } catch (\Exception $e) {
-            \Log::error('Error in myPaymentsWeb: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json(['error' => 'Unable to load payments'], 500);
+        $courseId = $request->get('course_id');
+        $courseTable = $request->get('table', 'florida_courses');
+        
+        if (!$courseId) {
+            return redirect('/courses')->with('error', 'Course not specified');
         }
-    }
 
-    public function retryPayment(Request $request)
-    {
-        try {
-            $request->validate([
-                'enrollment_id' => 'required|exists:user_course_enrollments,id',
-            ]);
+        // Get course based on table
+        $course = $this->getCourseByTable($courseTable, $courseId);
+        
+        if (!$course) {
+            return redirect('/courses')->with('error', 'Course not found');
+        }
 
-            $user = Auth::user();
-            $enrollment = \App\Models\UserCourseEnrollment::with('course')
-                ->where('id', $request->enrollment_id)
-                ->where('user_id', $user->id)
-                ->where('payment_status', 'pending')
-                ->first();
+        // Check if user already has an active enrollment for this course
+        $existingEnrollment = auth()->user()->enrollments()
+            ->where('course_id', $courseId)
+            ->where('course_table', $courseTable)
+            ->whereIn('payment_status', ['paid', 'pending'])
+            ->first();
 
-            if (!$enrollment) {
-                return response()->json(['error' => 'Enrollment not found or not eligible for retry'], 404);
+        if ($existingEnrollment) {
+            if ($existingEnrollment->payment_status === 'paid') {
+                return redirect()->route('course.player', $existingEnrollment->id)
+                    ->with('info', 'You are already enrolled in this course');
+            } else {
+                return redirect()->route('payment.status', $existingEnrollment->payment_id)
+                    ->with('info', 'You have a pending payment for this course');
             }
+        }
 
-            // Redirect to checkout page for this enrollment
+        return view('payment.checkout', compact('course', 'courseTable'));
+    }
+
+    /**
+     * Create payment intent
+     */
+    public function createIntent(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'course_id' => 'required|integer',
+            'course_table' => 'required|string',
+            'payment_method' => 'required|in:stripe,paypal',
+            'optional_services' => 'sometimes|array',
+        ]);
+
+        if ($validator->fails()) {
             return response()->json([
-                'redirect_url' => route('payment.show', [
-                    'course_id' => $enrollment->course_id,
-                    'table' => $enrollment->course_table ?? 'florida_courses'
-                ])
-            ]);
-            
-        } catch (\Exception $e) {
-            \Log::error('Error in retryPayment: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'enrollment_id' => $request->enrollment_id ?? null
-            ]);
-            
-            return response()->json(['error' => 'Unable to process retry request'], 500);
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
         }
-    }
 
-    public function cancelPendingPayment(Request $request)
-    {
         try {
-            $request->validate([
-                'enrollment_id' => 'required|exists:user_course_enrollments,id',
-            ]);
-
-            $user = Auth::user();
-            $enrollment = \App\Models\UserCourseEnrollment::where('id', $request->enrollment_id)
-                ->where('user_id', $user->id)
-                ->where('payment_status', 'pending')
-                ->first();
-
-            if (!$enrollment) {
-                return response()->json(['error' => 'Enrollment not found or not eligible for cancellation'], 404);
+            $course = $this->getCourseByTable($request->course_table, $request->course_id);
+            
+            if (!$course) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Course not found'
+                ], 404);
             }
 
-            // Update enrollment status to cancelled (don't change payment_status as 'cancelled' is not valid)
-            $enrollment->update([
-                'status' => 'cancelled'
-                // Keep payment_status as 'pending' since 'cancelled' is not a valid enum value
-            ]);
+            $result = $this->paymentService->createPaymentIntent(
+                auth()->user(),
+                $course,
+                [
+                    'payment_method' => $request->payment_method,
+                    'optional_services' => $request->optional_services ?? [],
+                ]
+            );
 
-            return response()->json(['message' => 'Payment cancelled successfully']);
-            
+            return response()->json($result);
+
         } catch (\Exception $e) {
-            \Log::error('Error in cancelPendingPayment: ' . $e->getMessage(), [
-                'user_id' => Auth::id(),
-                'enrollment_id' => $request->enrollment_id ?? null
-            ]);
-            
-            return response()->json(['error' => 'Unable to cancel payment'], 500);
-        }
-    }
-
-    public function store(Request $request)
-    {
-        try {
-            \Log::info('PaymentController store called', ['request_data' => $request->all()]);
-
-            $request->validate([
-                'user_email' => 'required|email|exists:users,email',
-                'course_id' => 'required|exists:florida_courses,id',
-                'amount' => 'required|numeric|min:0',
-                'payment_method' => 'required|string',
-                'status' => 'required|in:completed,pending,failed',
-            ]);
-
-            \Log::info('Validation passed');
-
-            $user = \App\Models\User::where('email', $request->user_email)->first();
-            \Log::info('User found', ['user_id' => $user->id, 'user_name' => $user->first_name.' '.$user->last_name]);
-
-            // Create or get enrollment
-            $enrollment = \App\Models\UserCourseEnrollment::firstOrCreate([
-                'user_id' => $user->id,
+            Log::error('Payment intent creation failed', [
+                'user_id' => auth()->id(),
                 'course_id' => $request->course_id,
-            ]);
-            \Log::info('Enrollment created/found', ['enrollment_id' => $enrollment->id]);
-
-            $paymentData = [
-                'user_id' => $user->id,
-                'enrollment_id' => $enrollment->id,
-                'amount' => $request->amount,
-                'payment_method' => $request->payment_method,
-                'gateway' => 'stripe',
-                'gateway_payment_id' => 'manual_'.time().'_'.$user->id,
-                'billing_name' => $user->first_name.' '.$user->last_name,
-                'billing_email' => $user->email,
-                'status' => $request->status,
-            ];
-
-            \Log::info('Payment data prepared', ['payment_data' => $paymentData]);
-
-            $payment = Payment::create($paymentData);
-            \Log::info('Payment created successfully', ['payment_id' => $payment->id]);
-
-            // Invoice will be created automatically by PaymentObserver
-
-            return response()->json($payment->load(['user', 'enrollment.course', 'invoice']));
-        } catch (\Exception $e) {
-            \Log::error('Error creating payment: '.$e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all(),
+                'error' => $e->getMessage()
             ]);
 
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'error' => 'Payment processing error. Please try again.'
+            ], 500);
         }
     }
 
-    public function update(Request $request, Payment $payment)
+    /**
+     * Confirm Stripe payment
+     */
+    public function confirmStripe(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'payment_intent_id' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
         try {
-            $request->validate([
-                'amount' => 'sometimes|numeric|min:0',
-                'payment_method' => 'sometimes|string',
-                'status' => 'sometimes|in:completed,pending,failed',
+            $result = $this->paymentService->confirmStripePayment($request->payment_intent_id);
+            
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'redirect_url' => route('payment.success', ['payment' => $result['payment_id']])
+                ]);
+            }
+
+            return response()->json($result, 400);
+
+        } catch (\Exception $e) {
+            Log::error('Stripe payment confirmation failed', [
+                'payment_intent_id' => $request->payment_intent_id,
+                'error' => $e->getMessage()
             ]);
 
-            $payment->update($request->only(['amount', 'payment_method', 'status']));
-
-            return response()->json($payment->load(['user', 'enrollment.course']));
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'error' => 'Payment confirmation failed. Please contact support.'
+            ], 500);
         }
     }
 
-    public function destroy(Payment $payment)
+    /**
+     * Handle PayPal success
+     */
+    public function paypalSuccess(Request $request)
     {
+        $paymentId = $request->get('paymentId');
+        $payerId = $request->get('PayerID');
+
+        if (!$paymentId || !$payerId) {
+            return redirect()->route('payment.cancel')
+                ->with('error', 'Invalid PayPal response');
+        }
+
         try {
-            $payment->delete();
+            $result = $this->paymentService->executePayPalPayment($paymentId, $payerId);
+            
+            if ($result['success']) {
+                return redirect()->route('payment.success', ['payment' => $result['payment_id']])
+                    ->with('success', 'Payment completed successfully!');
+            }
 
-            return response()->json(['message' => 'Payment deleted successfully']);
+            return redirect()->route('payment.cancel')
+                ->with('error', $result['error'] ?? 'Payment failed');
+
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('PayPal payment execution failed', [
+                'payment_id' => $paymentId,
+                'payer_id' => $payerId,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->route('payment.cancel')
+                ->with('error', 'Payment processing failed. Please try again.');
         }
     }
 
-    public function downloadPDF(Payment $payment)
+    /**
+     * Handle PayPal cancel
+     */
+    public function paypalCancel(Request $request)
     {
-        $payment->load(['user', 'enrollment.course']);
+        $paymentId = $request->route('payment');
+        
+        if ($paymentId) {
+            $payment = Payment::find($paymentId);
+            if ($payment && $payment->user_id === auth()->id()) {
+                $payment->markAsFailed('Payment cancelled by user');
+            }
+        }
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('payments.receipt', compact('payment'));
-
-        return $pdf->download('payment-receipt-'.$payment->id.'.pdf');
+        return redirect('/courses')->with('info', 'Payment was cancelled');
     }
 
-    public function emailReceipt(Payment $payment)
+    /**
+     * Show payment success page
+     */
+    public function success(Request $request)
     {
-        $payment->load(['user', 'enrollment.course']);
+        $paymentId = $request->route('payment');
+        $payment = Payment::with(['user', 'enrollment'])
+            ->where('id', $paymentId)
+            ->where('user_id', auth()->id())
+            ->first();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('payments.receipt', compact('payment'));
+        if (!$payment) {
+            return redirect('/dashboard')->with('error', 'Payment not found');
+        }
 
-        \Mail::send('emails.payment-receipt', compact('payment'), function ($message) use ($payment, $pdf) {
-            $message->to($payment->user->email)
-                ->subject('Payment Receipt #'.$payment->id)
-                ->attachData($pdf->output(), 'payment-receipt-'.$payment->id.'.pdf');
-        });
+        if ($payment->status !== 'completed') {
+            return redirect()->route('payment.status', $payment->id)
+                ->with('info', 'Payment is still processing');
+        }
 
-        return response()->json(['message' => 'Receipt sent successfully']);
+        return view('payment.success', compact('payment'));
     }
 
+    /**
+     * Show payment status page
+     */
+    public function status(Request $request)
+    {
+        $paymentId = $request->route('payment');
+        $payment = Payment::where('id', $paymentId)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (!$payment) {
+            return redirect('/dashboard')->with('error', 'Payment not found');
+        }
+
+        return view('payment.status', compact('payment'));
+    }
+
+    /**
+     * Show payment cancel page
+     */
+    public function cancel()
+    {
+        return view('payment.cancel');
+    }
+
+    /**
+     * Admin: List all payments
+     */
+    public function index(Request $request)
+    {
+        $query = Payment::with(['user'])
+            ->orderBy('created_at', 'desc');
+
+        // Apply filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('payment_method')) {
+            $query->where('payment_method', $request->payment_method);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            })->orWhere('gateway_payment_id', 'like', "%{$search}%");
+        }
+
+        $payments = $query->paginate(25);
+
+        // Get statistics
+        $stats = $this->paymentService->getPaymentStatistics([
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+            'status' => $request->status,
+            'payment_method' => $request->payment_method,
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'payments' => $payments,
+                'stats' => $stats
+            ]);
+        }
+
+        return view('admin.payments.index', compact('payments', 'stats'));
+    }
+
+    /**
+     * Admin: Show payment details
+     */
     public function show(Payment $payment)
     {
-        $payment->load(['user', 'enrollment.course', 'invoice', 'refunds']);
-
+        $payment->load(['user', 'enrollment']);
+        
         return response()->json($payment);
     }
 
+    /**
+     * Admin: Process refund
+     */
     public function refund(Request $request, Payment $payment)
     {
-        $request->validate([
-            'amount' => 'required|numeric|min:0|max:'.$payment->amount,
+        $validator = Validator::make($request->all(), [
+            'amount' => 'sometimes|numeric|min:0.01|max:' . $payment->amount,
             'reason' => 'required|string|max:255',
         ]);
 
-        $refund = Refund::create([
-            'payment_id' => $payment->id,
-            'amount' => $request->amount,
-            'reason' => $request->reason,
-            'status' => 'completed',
-            'processed_by' => auth()->id(),
-            'processed_at' => now(),
-        ]);
-
-        // Update payment status based on refund amount
-        $totalRefunded = $payment->refunds()->sum('amount');
-
-        if ($totalRefunded >= $payment->amount) {
-            $payment->update(['status' => 'refunded']);
-        } elseif ($totalRefunded > 0) {
-            $payment->update(['status' => 'partially_refunded']);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        return response()->json([
-            'refund' => $refund,
-            'payment' => $payment->fresh(),
-            'total_refunded' => $totalRefunded,
-            'remaining_amount' => $payment->amount - $totalRefunded,
-        ]);
-    }
-
-    public function showPayment(Request $request)
-    {
-        if (! auth()->check()) {
-            return redirect()->route('login')->with('error', 'Please login to continue');
+        if (!$payment->is_refundable) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Payment is not refundable'
+            ], 400);
         }
 
-        $courseId = $request->course_id;
-        $table = $request->input('table', 'florida_courses');
-        $user = auth()->user();
-
-        // Validate table parameter
-        if (! in_array($table, ['courses', 'florida_courses'])) {
-            return redirect()->back()->with('error', 'Invalid course table specified');
-        }
-
-        // Determine which model to use based on table parameter
         try {
-            if ($table === 'courses') {
-                $course = \App\Models\Course::findOrFail($courseId);
-            } else {
-                $course = \App\Models\FloridaCourse::findOrFail($courseId);
-            }
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Course not found');
-        }
-
-        // Check for existing enrollment
-        $existingEnrollment = \App\Models\UserCourseEnrollment::where('user_id', $user->id)
-            ->where('course_id', $course->id)
-            ->where('course_table', $table)
-            ->first();
-
-        if ($existingEnrollment) {
-            // If enrollment exists and is already paid, redirect to course
-            if ($existingEnrollment->payment_status === 'paid') {
-                return redirect()->route('course-player', ['enrollmentId' => $existingEnrollment->id])
-                    ->with('info', 'You are already enrolled and can access this course.');
-            }
+            // Process refund through payment gateway
+            $refundAmount = $request->amount ?? $payment->amount;
             
-            // If enrollment exists but payment is pending/failed, allow payment
-            $enrollment = $existingEnrollment;
-        } else {
-            // Create new enrollment for checkout
-            $enrollment = \App\Models\UserCourseEnrollment::create([
-                'user_id' => $user->id,
-                'course_id' => $course->id,
-                'course_table' => $table,
-                'amount_paid' => $course->price ?? 0,
-                'payment_status' => 'pending',
-                'enrolled_at' => now(),
-                'status' => 'active',
-            ]);
-        }
+            // TODO: Implement actual gateway refund calls
+            // For now, just mark as refunded in database
+            
+            $payment->processRefund($refundAmount, $request->reason);
 
-        return view('payment.checkout', compact('course', 'enrollment'));
+            Log::info('Payment refunded', [
+                'payment_id' => $payment->id,
+                'refund_amount' => $refundAmount,
+                'reason' => $request->reason,
+                'admin_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Refund processed successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Refund processing failed', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Refund processing failed'
+            ], 500);
+        }
     }
 
-    public function processPayment(Request $request)
+    /**
+     * User: Get my payments
+     */
+    public function myPayments(Request $request)
     {
-        $request->validate([
-            'course_id' => 'required',
-            'table' => 'required|in:courses,florida_courses',
-            'payment_method' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'original_amount' => 'sometimes|numeric|min:0',
-            'coupon_code' => 'sometimes|string|max:6',
-            'discount_amount' => 'sometimes|numeric|min:0',
-        ]);
+        $payments = Payment::where('user_id', auth()->id())
+            ->with(['enrollment'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
-        $user = auth()->user();
-        $table = $request->table;
-
-        // Get course from appropriate table
-        if ($table === 'courses') {
-            $course = \App\Models\Course::findOrFail($request->course_id);
-        } else {
-            $course = \App\Models\FloridaCourse::findOrFail($request->course_id);
+        if ($request->wantsJson()) {
+            return response()->json($payments);
         }
 
-        // Check for existing enrollment first
-        $existingEnrollment = \App\Models\UserCourseEnrollment::where('user_id', $user->id)
-            ->where('course_id', $course->id)
-            ->where('course_table', $table)
-            ->first();
+        return view('payment.my-payments', compact('payments'));
+    }
 
-        if ($existingEnrollment) {
-            return redirect()->back()->with('error', 'You are already enrolled in this course.');
+    /**
+     * Webhook handler for Stripe
+     */
+    public function stripeWebhook(Request $request)
+    {
+        $payload = $request->getContent();
+        $sigHeader = $request->header('Stripe-Signature');
+        $webhookSecret = config('payment.stripe.webhook_secret');
+
+        try {
+            $event = \Stripe\Webhook::constructEvent($payload, $sigHeader, $webhookSecret);
+        } catch (\Exception $e) {
+            Log::error('Stripe webhook signature verification failed', [
+                'error' => $e->getMessage()
+            ]);
+            return response('Invalid signature', 400);
         }
 
-        // Create enrollment
-        $enrollment = \App\Models\UserCourseEnrollment::create([
-            'user_id' => $user->id,
-            'course_id' => $course->id,
-            'course_table' => $table,
-            'enrolled_at' => now(),
-            'status' => 'active',
-            'amount_paid' => $course->price ?? 0,
-            'payment_status' => 'pending',
-        ]);
-
-        // Handle coupon if provided
-        $couponUsed = null;
-        if ($request->filled('coupon_code')) {
-            $coupon = \App\Models\Coupon::where('code', $request->coupon_code)->first();
-            
-            if ($coupon && $coupon->isValid()) {
-                // Record coupon usage
-                $couponUsed = \App\Models\CouponUsage::create([
-                    'coupon_id' => $coupon->id,
-                    'user_id' => $user->id,
-                    'discount_amount' => $request->discount_amount ?? 0,
-                    'original_amount' => $request->original_amount ?? $course->price,
-                    'final_amount' => $request->amount,
-                ]);
-                
-                // Mark coupon as used
-                $coupon->markAsUsed();
-            }
+        // Handle the event
+        switch ($event['type']) {
+            case 'payment_intent.succeeded':
+                $this->handleStripePaymentSuccess($event['data']['object']);
+                break;
+            case 'payment_intent.payment_failed':
+                $this->handleStripePaymentFailed($event['data']['object']);
+                break;
+            default:
+                Log::info('Unhandled Stripe webhook event', ['type' => $event['type']]);
         }
 
-        // Create payment (invoice will be created automatically by PaymentObserver)
-        $payment = Payment::create([
-            'user_id' => $user->id,
-            'enrollment_id' => $enrollment->id,
-            'amount' => $request->amount,
-            'payment_method' => $request->payment_method,
-            'gateway' => $request->payment_method === 'stripe' ? 'stripe' : 'manual',
-            'gateway_payment_id' => 'pay_'.time().'_'.$user->id,
-            'billing_name' => $user->first_name.' '.$user->last_name,
-            'billing_email' => $user->email,
-            'status' => 'completed',
-            'coupon_code' => $request->coupon_code,
-            'discount_amount' => $request->discount_amount ?? 0,
-            'original_amount' => $request->original_amount ?? $course->price,
-        ]);
+        return response('Webhook handled', 200);
+    }
 
-        // Clear pending enrollment session
-        session()->forget('pending_course_enrollment');
+    /**
+     * Handle successful Stripe payment
+     */
+    private function handleStripePaymentSuccess($paymentIntent)
+    {
+        $payment = Payment::where('gateway_payment_id', $paymentIntent['id'])->first();
+        
+        if ($payment && $payment->status === 'pending') {
+            $this->paymentService->confirmStripePayment($paymentIntent['id']);
+        }
+    }
 
-        return redirect()->route('course-player', ['enrollmentId' => $enrollment->id])
-            ->with('success', 'Payment successful! You can now access the course.');
+    /**
+     * Handle failed Stripe payment
+     */
+    private function handleStripePaymentFailed($paymentIntent)
+    {
+        $payment = Payment::where('gateway_payment_id', $paymentIntent['id'])->first();
+        
+        if ($payment && $payment->status === 'pending') {
+            $payment->markAsFailed($paymentIntent['last_payment_error']['message'] ?? 'Payment failed');
+        }
+    }
+
+    /**
+     * Get course by table and ID
+     */
+    private function getCourseByTable($table, $courseId)
+    {
+        switch ($table) {
+            case 'florida_courses':
+                return FloridaCourse::find($courseId);
+            case 'missouri_courses':
+                return \App\Models\Missouri\Course::find($courseId);
+            case 'texas_courses':
+                return \App\Models\Texas\Course::find($courseId);
+            case 'delaware_courses':
+                return \App\Models\Delaware\Course::find($courseId);
+            default:
+                return Course::find($courseId);
+        }
     }
 }

@@ -570,15 +570,36 @@
         </div>
 
         <!-- Certificate Section -->
-        @if($result->is_passing && $result->certificate_generated)
+        @if($result->passed)
         <div class="certificate-section">
             <div class="certificate-icon">
                 <i class="fas fa-certificate"></i>
             </div>
             <h3>Congratulations!</h3>
             <p>You have successfully completed the course. Your certificate is ready for download.</p>
-            <a href="/certificate/{{ $result->certificate_number }}" class="btn-certificate">
-                <i class="fas fa-download me-2"></i>Download Certificate
+            <div class="d-flex justify-content-center gap-3">
+                <a href="/certificate/view?enrollment_id={{ $result->enrollment_id }}" class="btn-certificate" target="_blank">
+                    <i class="fas fa-eye me-2"></i>View Certificate
+                </a>
+                <a href="/certificate/generate?enrollment_id={{ $result->enrollment_id }}" class="btn-certificate" target="_blank">
+                    <i class="fas fa-download me-2"></i>Download Certificate
+                </a>
+            </div>
+        </div>
+        @elseif($result->status === 'under_review')
+        <div class="grading-period">
+            <h5><i class="fas fa-clock me-2"></i>Under Review</h5>
+            <p>Your exam is currently being reviewed. Results will be available within 24 hours.</p>
+            @if($result->grading_period_ends_at)
+                <p><strong>Review completes by:</strong> {{ $result->grading_period_ends_at->format('M j, Y g:i A') }}</p>
+            @endif
+        </div>
+        @else
+        <div class="alert alert-warning text-center">
+            <h5><i class="fas fa-exclamation-triangle me-2"></i>Exam Not Passed</h5>
+            <p>You need a score of {{ $result->passing_threshold }}% or higher to pass. Please review the course material and retake the exam.</p>
+            <a href="/course-player/{{ $result->enrollment_id }}" class="btn btn-primary">
+                <i class="fas fa-redo me-2"></i>Review Course & Retake Exam
             </a>
         </div>
         @endif

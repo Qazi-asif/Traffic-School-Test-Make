@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Chapter extends Model
 {
+    protected $guarded = ['id', 'created_at', 'updated_at'];
+
+    // Fallback fillable for compatibility
     protected $fillable = [
         'course_id',
         'course_table',

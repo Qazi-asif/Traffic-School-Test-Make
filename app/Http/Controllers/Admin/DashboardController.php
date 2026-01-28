@@ -19,7 +19,25 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $admin = Auth::guard('admin')->user();
-        $states = $admin->isSuperAdmin() ? ['florida', 'missouri', 'texas', 'delaware'] : $admin->state_access;
+        
+        // Check if admin is authenticated
+        if (!$admin) {
+            // Return a simple admin dashboard for non-authenticated users
+            return view('admin.dashboard', [
+                'stats' => [
+                    'florida' => ['courses' => 0, 'active_courses' => 0],
+                    'missouri' => ['courses' => 0, 'active_courses' => 0],
+                    'texas' => ['courses' => 0, 'active_courses' => 0],
+                    'delaware' => ['courses' => 0, 'active_courses' => 0],
+                    'total_users' => 0
+                ],
+                'message' => 'Admin authentication required'
+            ]);
+        }
+        
+        $states = method_exists($admin, 'isSuperAdmin') && $admin->isSuperAdmin() 
+            ? ['florida', 'missouri', 'texas', 'delaware'] 
+            : (property_exists($admin, 'state_access') ? $admin->state_access : ['florida']);
 
         // Get dashboard statistics
         $stats = $this->getDashboardStats($states);

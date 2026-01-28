@@ -1,46 +1,53 @@
 <?php
+/**
+ * Clear Laravel Cache - Phase 1 Integration
+ */
 
-require_once 'vendor/autoload.php';
-
-// Bootstrap Laravel
-$app = require_once 'bootstrap/app.php';
-$app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
+echo "🔄 CLEARING LARAVEL CACHE\n";
+echo "=========================\n\n";
 
 try {
-    echo "=== Clearing Application Cache ===\n";
+    // Bootstrap Laravel
+    require_once __DIR__ . '/vendor/autoload.php';
+    $app = require_once __DIR__ . '/bootstrap/app.php';
+    $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
     
-    // Clear various caches
-    \Artisan::call('cache:clear');
-    echo "✅ Application cache cleared\n";
+    echo "✅ Laravel bootstrapped successfully\n";
     
-    \Artisan::call('config:clear');
-    echo "✅ Configuration cache cleared\n";
-    
-    \Artisan::call('route:clear');
-    echo "✅ Route cache cleared\n";
-    
-    \Artisan::call('view:clear');
-    echo "✅ View cache cleared\n";
-    
-    // Clear the specific enrollment cache that was mentioned in the logs
-    $cacheKeys = [
-        'enrollment_course_data_99_*',
-        'enrollment_course_data_*'
-    ];
-    
-    foreach ($cacheKeys as $pattern) {
-        try {
-            \Cache::flush();
-            echo "✅ Cache flushed\n";
-            break;
-        } catch (\Exception $e) {
-            echo "⚠️  Cache flush warning: " . $e->getMessage() . "\n";
-        }
+    // Clear route cache
+    try {
+        Artisan::call('route:clear');
+        echo "✅ Route cache cleared\n";
+    } catch (Exception $e) {
+        echo "⚠️ Route clear failed: " . $e->getMessage() . "\n";
     }
     
-    echo "\n=== Cache Clearing Complete ===\n";
-    echo "Please try accessing the Florida 4-Hour BDI Course again.\n";
+    // Clear config cache
+    try {
+        Artisan::call('config:clear');
+        echo "✅ Config cache cleared\n";
+    } catch (Exception $e) {
+        echo "⚠️ Config clear failed: " . $e->getMessage() . "\n";
+    }
     
-} catch (\Exception $e) {
+    // Clear view cache
+    try {
+        Artisan::call('view:clear');
+        echo "✅ View cache cleared\n";
+    } catch (Exception $e) {
+        echo "⚠️ View clear failed: " . $e->getMessage() . "\n";
+    }
+    
+    echo "\n🎉 CACHE CLEARED SUCCESSFULLY!\n";
+    echo "===============================\n";
+    echo "Now test these URLs:\n";
+    echo "- http://nelly-elearning.test/florida\n";
+    echo "- http://nelly-elearning.test/florida/test-controller\n";
+    echo "- http://nelly-elearning.test/missouri\n";
+    echo "- http://nelly-elearning.test/admin\n";
+    
+} catch (Exception $e) {
     echo "❌ Error: " . $e->getMessage() . "\n";
+    echo "   File: " . $e->getFile() . ":" . $e->getLine() . "\n";
 }
+?>

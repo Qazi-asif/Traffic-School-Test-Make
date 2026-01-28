@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DOCX Upload Test</title>
+    <meta name="csrf-token" content="">
+</head>
+<body>
+    <h1>DOCX Upload Test</h1>
+    <form id="docxForm" enctype="multipart/form-data">
+        <input type="file" id="docxFile" accept=".docx" required>
+        <button type="submit">Upload DOCX</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <script>
+    document.getElementById("docxForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById("docxFile");
+        const resultDiv = document.getElementById("result");
+        
+        if (!fileInput.files[0]) {
+            resultDiv.innerHTML = "<p style=\"color: red;\">Please select a DOCX file</p>";
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        
+        try {
+            resultDiv.innerHTML = "<p>Uploading...</p>";
+            
+            const response = await fetch("/api/import-docx", {
+                method: "POST",
+                headers: {
+                    "X-CSRF-TOKEN": document.querySelector("meta[name=csrf-token]").content,
+                    "Accept": "application/json"
+                },
+                body: formData
+            });
+            
+            const responseText = await response.text();
+            
+            resultDiv.innerHTML = `
+                <h3>Response:</h3>
+                <p><strong>Status:</strong> ${response.status}</p>
+                <p><strong>Content-Type:</strong> ${response.headers.get("content-type")}</p>
+                <p><strong>Response:</strong></p>
+                <pre>${responseText}</pre>
+            `;
+            
+            // Try to parse as JSON
+            try {
+                const jsonData = JSON.parse(responseText);
+                resultDiv.innerHTML += "<p style=\"color: green;\">✅ Valid JSON response</p>";
+            } catch (e) {
+                resultDiv.innerHTML += "<p style=\"color: red;\">❌ NOT JSON - This is the problem!</p>";
+            }
+            
+        } catch (error) {
+            resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+    });
+    </script>
+</body>
+</html>

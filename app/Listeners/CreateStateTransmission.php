@@ -2,171 +2,123 @@
 
 namespace App\Listeners;
 
-use App\Events\CourseCompleted;
-use App\Jobs\SendFloridaTransmissionJob;
-use App\Models\StateTransmission;
-use App\Services\CaliforniaTvccService;
-use App\Services\CcsService;
-use App\Services\NevadaNtsaService;
+use App\Events\CertificateGenerated;
+use App\Services\StateSubmissionService;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Config;
 
-class CreateStateTransmission
+class CreateStateTransmission implements ShouldQueue
 {
-    /**
-     * Handle the event - creates and sends state transmissions synchronously or queued.
-     */
-    public function handle(CourseCompleted $event): void
-    {
-        $enrollment = $event->enrollment;
-        $enrollment->load(['user', 'course']);
-        
-        $course = $enrollment->course;
-        
-        // Get state from either 'state' or 'state_code' column
-        $courseState = $course->state ?? $course->state_code ?? null;
-        
-        $syncMode = config('state-integrations.sync_execution', true);
+    use InteractsWithQueue;
 
-        Log::info('CreateStateTransmission listener fired', [
-            'enrollment_id' => $enrollment->id,
-            'course_state' => $courseState,
-            'course_title' => $course->title,
+    protected $submissionService;
+
+    /**
+     * Create the event listener.
+     */
+    public function __construct(StateSubmissionService $submissionService)
+    {
+        $this->submissionService = $submissionService;
+    }
+
+    /**
+     * Handle the event.
+     */
+    public function handle(CertificateGenerated $event): void
+    {
+        $certificate = $event->certificate;
+        
+        Log::info("Processing certificate for state submission", [
+            'certificate_id' => $certificate->id,
+            'certificate_number' => $certificate->certificate_number,
+            'state_code' => $certificate->state_code
         ]);
 
-        // Create transmission based on course state
-        if ($courseState) {
-            if ($courseState === 'FL') {
-                $this->handleFloridaTransmission($enrollment, $syncMode);
-            } elseif ($courseState === 'CA') {
-                $this->handleCaliforniaTvcc($enrollment, $syncMode);
-            } elseif ($courseState === 'NV') {
-                $this->handleNevadaNtsa($enrollment, $syncMode);
-            } else {
-                // All other states use CCS
-                $this->handleCcs($enrollment, $syncMode);
-            }
-        } else {
-            Log::warning('Course has no state set', ['enrollment_id' => $enrollment->id, 'course_id' => $course->id]);
+        // Check if auto-submission is enabled globally
+        if (!Config::get('state-integrations.global.auto_submit_enabled', false)) {
+            Log::info("Auto state submission is disabled globally");
+            return;
         }
-    }
 
-    protected function handleFloridaTransmission($enrollment, bool $syncMode): void
-    {
-        try {
-            $transmission = StateTransmission::create([
-                'enrollment_id' => $enrollment->id,
-                'state' => 'FL',
-                'system' => 'FLHSMV',
-                'status' => 'pending',
-                'retry_count' => 0,
-            ]);
-
-            if ($syncMode) {
-                // Execute synchronously
-                $job = new SendFloridaTransmissionJob($transmission->id);
-                $job->handle();
-            } else {
-                // Queue for background processing
-                SendFloridaTransmissionJob::dispatch($transmission->id);
-            }
-
-            Log::info('Florida transmission created', [
-                'transmission_id' => $transmission->id,
-                'enrollment_id' => $enrollment->id,
-                'sync' => $syncMode,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to create Florida transmission', [
-                'enrollment_id' => $enrollment->id,
-                'error' => $e->getMessage(),
-            ]);
+        // Check if state integration is enabled
+        $stateConfig = $this->getStateConfig($certificate->state_code);
+        if (!$stateConfig || !$stateConfig['enabled']) {
+            Log::info("State integration disabled for: " . $certificate->state_code);
+            return;
         }
-    }
 
-    protected function handleCaliforniaTvcc($enrollment, bool $syncMode): void
-    {
-        try {
-            $transmission = StateTransmission::create([
-                'enrollment_id' => $enrollment->id,
-                'state' => 'CA',
-                'system' => 'TVCC',
-                'status' => 'pending',
-                'retry_count' => 0,
+        // Check if certificate meets state requirements
+        if (!$certificate->meetsStateRequirements()) {
+            Log::warning("Certificate does not meet state requirements", [
+                'certificate_id' => $certificate->id,
+                'state_code' => $certificate->state_code,
+                'requirements' => $certificate->state_requirements
             ]);
-
-            if ($syncMode) {
-                $service = new CaliforniaTvccService();
-                $service->sendTransmission($transmission);
-            }
-
-            Log::info('California TVCC transmission created', [
-                'transmission_id' => $transmission->id,
-                'enrollment_id' => $enrollment->id,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to create California TVCC transmission', [
-                'enrollment_id' => $enrollment->id,
-                'error' => $e->getMessage(),
-            ]);
+            return;
         }
-    }
 
-    protected function handleNevadaNtsa($enrollment, bool $syncMode): void
-    {
         try {
-            $transmission = StateTransmission::create([
-                'enrollment_id' => $enrollment->id,
-                'state' => 'NV',
-                'system' => 'NTSA',
-                'status' => 'pending',
-                'retry_count' => 0,
-            ]);
-
-            if ($syncMode) {
-                $service = new NevadaNtsaService();
-                $service->sendTransmission($transmission);
-            }
-
-            Log::info('Nevada NTSA transmission created', [
-                'transmission_id' => $transmission->id,
-                'enrollment_id' => $enrollment->id,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to create Nevada NTSA transmission', [
-                'enrollment_id' => $enrollment->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    protected function handleCcs($enrollment, bool $syncMode): void
-    {
-        try {
-            $course = $enrollment->course;
-            $courseState = $course->state ?? $course->state_code ?? null;
+            // Add delay if configured
+            $delay = Config::get('state-integrations.global.auto_submit_delay', 0);
             
-            $transmission = StateTransmission::create([
-                'enrollment_id' => $enrollment->id,
-                'state' => $courseState,
-                'system' => 'CCS',
-                'status' => 'pending',
-                'retry_count' => 0,
-            ]);
-
-            if ($syncMode) {
-                $service = new CcsService();
-                $service->sendTransmission($transmission);
+            if ($delay > 0) {
+                // Dispatch with delay
+                \App\Jobs\DelayedStateSubmissionJob::dispatch($certificate)
+                    ->delay(now()->addSeconds($delay));
+                
+                Log::info("State submission scheduled with delay", [
+                    'certificate_id' => $certificate->id,
+                    'delay_seconds' => $delay
+                ]);
+            } else {
+                // Submit immediately
+                $result = $this->submissionService->submitCertificate($certificate);
+                
+                Log::info("Immediate state submission result", [
+                    'certificate_id' => $certificate->id,
+                    'result' => $result
+                ]);
             }
 
-            Log::info('CCS transmission created', [
-                'transmission_id' => $transmission->id,
-                'enrollment_id' => $enrollment->id,
-            ]);
         } catch (\Exception $e) {
-            Log::error('Failed to create CCS transmission', [
-                'enrollment_id' => $enrollment->id,
+            Log::error("Failed to process certificate for state submission", [
+                'certificate_id' => $certificate->id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
+
+            // Don't fail the entire certificate generation process
+            // The submission can be retried manually later
+        }
+    }
+
+    /**
+     * Get state configuration
+     */
+    private function getStateConfig(string $stateCode): ?array
+    {
+        $stateKey = strtolower($this->getStateKey($stateCode));
+        return Config::get("state-integrations.{$stateKey}");
+    }
+
+    /**
+     * Get state configuration key
+     */
+    private function getStateKey(string $stateCode): string
+    {
+        switch (strtoupper($stateCode)) {
+            case 'FL':
+                return 'florida';
+            case 'MO':
+                return 'missouri';
+            case 'TX':
+                return 'texas';
+            case 'DE':
+                return 'delaware';
+            default:
+                return strtolower($stateCode);
         }
     }
 }

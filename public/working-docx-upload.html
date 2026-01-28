@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Working DOCX Upload</title>
+    <meta name="csrf-token" content="">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .upload-area { border: 2px dashed #ccc; padding: 40px; text-align: center; margin: 20px 0; }
+        .upload-area.dragover { border-color: #007cba; background: #f0f8ff; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Working DOCX Upload</h1>
+    
+    <div class="upload-area" id="uploadArea">
+        <p>📄 Drag and drop a DOCX file here, or click to select</p>
+        <input type="file" id="docxFile" accept=".docx" style="display: none;">
+        <button onclick="document.getElementById('docxFile').click()">Select DOCX File</button>
+    </div>
+    
+    <button id="uploadBtn" disabled>Upload and Import DOCX</button>
+    
+    <div id="result"></div>
+    
+    <script>
+    const uploadArea = document.getElementById("uploadArea");
+    const fileInput = document.getElementById("docxFile");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const resultDiv = document.getElementById("result");
+    
+    let selectedFile = null;
+    
+    // Drag and drop
+    uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+    });
+    
+    uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+    });
+    
+    uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].name.endsWith(".docx")) {
+            selectedFile = files[0];
+            updateUI();
+        } else {
+            alert("Please select a DOCX file");
+        }
+    });
+    
+    fileInput.addEventListener("change", (e) => {
+        if (e.target.files[0]) {
+            selectedFile = e.target.files[0];
+            updateUI();
+        }
+    });
+    
+    function updateUI() {
+        if (selectedFile) {
+            uploadArea.innerHTML = `
+                <p class="success">✅ Selected: ${selectedFile.name}</p>
+                <p>Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                <button onclick="document.getElementById('docxFile').click()">Change File</button>
+            `;
+            uploadBtn.disabled = false;
+        }
+    }
+    
+    uploadBtn.addEventListener("click", async function() {
+        if (!selectedFile) return;
+        
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        
+        try {
+            resultDiv.innerHTML = "<p>📤 Uploading and processing DOCX...</p>";
+            uploadBtn.disabled = true;
+            
+            const response = await fetch("/api/import-docx", {
+                method: "POST",
+                headers: {
+                    "X-CSRF-TOKEN": document.querySelector("meta[name=csrf-token]").content,
+                    "Accept": "application/json"
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ DOCX Import Successful!</h3>
+                        <p><strong>Images imported:</strong> ${data.images_imported || 0}</p>
+                        ${data.has_unsupported_images ? "<p>⚠️ Some images were unsupported and skipped</p>" : ""}
+                        <details>
+                            <summary>HTML Content Preview</summary>
+                            <div style="border: 1px solid #ccc; padding: 10px; max-height: 200px; overflow-y: auto;">
+                                ${data.html ? data.html.substring(0, 1000) + "..." : "No content"}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ DOCX Import Failed</h3>
+                        <p>${data.error || data.message || "Unknown error"}</p>
+                        <details>
+                            <summary>Full Response</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            resultDiv.innerHTML = `
+                <div class="error">
+                    <h3>❌ Upload Failed</h3>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        } finally {
+            uploadBtn.disabled = false;
+        }
+    });
+    </script>
+</body>
+</html>

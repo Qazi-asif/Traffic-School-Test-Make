@@ -14,26 +14,25 @@ use Illuminate\Support\Facades\DB;
 
 class CoursePlayerController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth');
-    }
-
     /**
      * Show available Texas courses
      */
     public function index()
     {
-        $user = Auth::user();
-        $courses = Course::where('is_active', true)->get();
-        
-        // Get user's enrollments
-        $enrollments = Enrollment::where('user_id', $user->id)
-            ->with('course')
-            ->get()
-            ->keyBy('course_id');
-
-        return view('student.texas.courses.index', compact('courses', 'enrollments'));
+        try {
+            $user = Auth::user();
+            
+            // Get Texas courses
+            $courses = Course::where('is_active', true)->get();
+            
+            return view('student.texas.dashboard', compact('courses', 'user'));
+        } catch (\Exception $e) {
+            return view('student.texas.dashboard', [
+                'courses' => collect(),
+                'user' => Auth::user(),
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**

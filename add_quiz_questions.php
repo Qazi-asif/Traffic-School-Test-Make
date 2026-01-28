@@ -103,17 +103,24 @@ if (!$isWeb) {
                         'updated_at' => now(),
                     ]);
                 } else {
-                    // Use old questions table
-                    DB::table('questions')->insert([
+                    // Use old questions table - but it doesn't have chapter_id column!
+                    // This is likely the source of the error. Let's use chapter_questions instead.
+                    echo "Warning: questions table doesn't support chapter_id. Using chapter_questions table instead.\n";
+                    DB::table('chapter_questions')->insert([
                         'chapter_id' => $chapterId,
                         'question_text' => $q['question'],
-                        'option_a' => $q['options']['A'] ?? '',
-                        'option_b' => $q['options']['B'] ?? '',
-                        'option_c' => $q['options']['C'] ?? '',
-                        'option_d' => $q['options']['D'] ?? '',
-                        'option_e' => $q['options']['E'] ?? null,
+                        'question_type' => 'multiple_choice',
+                        'options' => json_encode([
+                            ['label' => 'A', 'text' => $q['options']['A'] ?? ''],
+                            ['label' => 'B', 'text' => $q['options']['B'] ?? ''],
+                            ['label' => 'C', 'text' => $q['options']['C'] ?? ''],
+                            ['label' => 'D', 'text' => $q['options']['D'] ?? ''],
+                            ['label' => 'E', 'text' => $q['options']['E'] ?? ''],
+                        ]),
                         'correct_answer' => $q['correct'],
-                        'is_active' => true,
+                        'points' => 1,
+                        'order_index' => $index + 1,
+                        'quiz_set' => $quizSet,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);

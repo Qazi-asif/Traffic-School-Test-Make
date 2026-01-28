@@ -6,9 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Auth\Passwords\CanResetPassword;
-use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable
 {
     use HasFactory, Notifiable, CanResetPassword;
 
@@ -55,16 +54,23 @@ class User extends Authenticatable implements JWTSubject
         'security_q10',
         'agreement_name',
         'terms_agreement',
-        'registration_completed_at',
+        'state_code',
+        'name',
+        'email_verified_at',
         'account_locked',
-        'lock_reason',
         'locked_at',
         'two_factor_enabled',
         'two_factor_code',
         'two_factor_expires_at',
         'two_factor_verified_at',
         'two_factor_attempts',
+        'registration_completed_at',
     ];
+
+    /**
+     * Always load the role relationship
+     */
+    protected $with = ['role'];
 
     protected $hidden = [
         'password',
@@ -104,6 +110,66 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsTo(Role::class);
     }
 
+    /**
+     * Check if user is an admin (safely handles role relationship)
+     */
+    public function isAdmin()
+    {
+        if (!$this->role) {
+            return false;
+        }
+        
+        if (is_object($this->role)) {
+            return in_array($this->role->slug ?? '', ['super-admin', 'admin']);
+        }
+        
+        if (is_string($this->role)) {
+            return in_array($this->role, ['super-admin', 'admin']);
+        }
+        
+        return false;
+    }
+
+    /**
+     * Get user role slug safely
+     */
+    public function getRoleSlug()
+    {
+        if (!$this->role) {
+            return 'student';
+        }
+        
+        if (is_object($this->role)) {
+            return $this->role->slug ?? 'student';
+        }
+        
+        if (is_string($this->role)) {
+            return $this->role;
+        }
+        
+        return 'student';
+    }
+
+    /**
+     * Get user role name safely
+     */
+    public function getRoleName()
+    {
+        if (!$this->role) {
+            return 'User';
+        }
+        
+        if (is_object($this->role)) {
+            return $this->role->name ?? 'User';
+        }
+        
+        if (is_string($this->role)) {
+            return ucfirst($this->role);
+        }
+        
+        return 'User';
+    }
+
     public function enrollments()
     {
         return $this->hasMany(UserCourseEnrollment::class);
@@ -119,17 +185,7 @@ class User extends Authenticatable implements JWTSubject
         return $query->where('account_locked', false);
     }
 
-    public function isAdmin()
-    {
-        // Load role if not already loaded
-        if (!$this->relationLoaded('role')) {
-            $this->load('role');
-        }
-        
-        return $this->role && in_array($this->role->slug, ['admin', 'super-admin']);
-    }
-
-    // JWT methods
+    // JWT methods (optional - only used if JWT package is properly configured)
     public function getJWTIdentifier()
     {
         return $this->getKey();

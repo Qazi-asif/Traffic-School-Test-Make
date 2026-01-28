@@ -1,0 +1,72 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+
+class RoleMiddleware
+{
+    public function handle(Request $request, Closure $next, ...$roles)
+    {
+        if (! auth()->check()) {
+            return redirect('/login');
+        }
+
+        $user = auth()->user();
+        
+        // Handle both relationship-based roles and simple string roles
+        $userRole = null;
+        
+        try {
+            if (isset($user->role)) {
+                // If role is an object (relationship), get the slug
+                if (is_object($user->role) && isset($user->role->slug)) {
+                    $userRole = $user->role->slug;
+                } 
+                // If role is a string, use it directly
+                elseif (is_string($user->role)) {
+                    $userRole = $user->role;
+                }
+            }
+            
+            // Log for debugging
+            Log::info('RoleMiddleware check', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'user_role' => $userRole,
+                'required_roles' => $roles,
+                'access_granted' => in_array($userRole, $roles)
+            ]);
+
+            if (! $userRole || ! in_array($userRole, $roles)) {
+                Log::warning('Access denied by RoleMiddleware', [
+                    'user_id' => $user->id,
+                    'user_role' => $userRole,
+                    'required_roles' => $roles,
+                    'url' => $request->url()
+                ]);
+                
+                if ($request->expectsJson()) {
+                    return response()->json(['error' => 'Unauthorized. Required roles: ' . implode(', ', $roles) . '. Your role: ' . ($userRole ?? 'none')], 403);
+                }
+                
+                abort(403, 'Unauthorized. Required roles: ' . implode(', ', $roles) . '. Your role: ' . ($userRole ?? 'none'));
+            }
+
+            return $next($request);
+            
+        } catch (\Exception $e) {
+            Log::error('RoleMiddleware error: ' . $e->getMessage(), [
+                'user_id' => $user->id ?? 'unknown',
+                'url' => $request->url(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Fallback - allow access if there's an error to prevent complete lockout
+            return $next($request);
+        }
+    }
+}

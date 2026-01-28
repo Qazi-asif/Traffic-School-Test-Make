@@ -14,26 +14,25 @@ use Illuminate\Support\Facades\DB;
 
 class CoursePlayerController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth');
-    }
-
     /**
      * Show available Delaware courses
      */
     public function index()
     {
-        $user = Auth::user();
-        $courses = Course::where('is_active', true)->get();
-        
-        // Get user's enrollments
-        $enrollments = Enrollment::where('user_id', $user->id)
-            ->with('course')
-            ->get()
-            ->keyBy('course_id');
-
-        return view('student.delaware.courses.index', compact('courses', 'enrollments'));
+        try {
+            $user = Auth::user();
+            
+            // Get Delaware courses
+            $courses = Course::where('is_active', true)->get();
+            
+            return view('student.delaware.dashboard', compact('courses', 'user'));
+        } catch (\Exception $e) {
+            return view('student.delaware.dashboard', [
+                'courses' => collect(),
+                'user' => Auth::user(),
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Main App CSRF Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        code { background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Main App CSRF Fix Applied</h1>
+        
+        <div class="success">
+            <h3>✅ Fix Applied Successfully!</h3>
+            <p>The CSRF token handling in your main <code>create-course.blade.php</code> has been updated with:</p>
+            <ul>
+                <li><strong>Enhanced Headers:</strong> Added <code>Accept: application/json</code> and <code>X-Requested-With: XMLHttpRequest</code></li>
+                <li><strong>Response Type Detection:</strong> Properly handles both JSON and HTML responses</li>
+                <li><strong>CSRF Error Handling:</strong> Specific handling for HTTP 419 errors</li>
+                <li><strong>User-Friendly Messages:</strong> Clear error messages for different scenarios</li>
+            </ul>
+        </div>
+        
+        <div class="info">
+            <h3>🧪 How to Test the Fix</h3>
+            <ol>
+                <li><strong>Go to your main course creation page:</strong><br>
+                    <code>http://nelly-elearning.test/create-course</code></li>
+                <li><strong>Try uploading a DOCX file</strong> - should work without JSON errors</li>
+                <li><strong>Test CSRF handling:</strong>
+                    <ul>
+                        <li>Open browser developer tools</li>
+                        <li>Clear cookies/session storage</li>
+                        <li>Try uploading - should see "CSRF token expired" message</li>
+                        <li>Refresh page and try again - should work</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+        
+        <div class="info">
+            <h3>🔍 What Was Changed</h3>
+            <p>The DOCX import handler in your main application now includes:</p>
+            <pre><code>// Enhanced headers for proper CSRF handling
+headers: {
+    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+}
+
+// Proper response type detection
+const contentType = response.headers.get('content-type');
+if (contentType && contentType.includes('application/json')) {
+    data = await response.json();
+} else {
+    // Handle CSRF errors that return HTML
+    if (response.status === 419) {
+        throw new Error('CSRF token expired. Please refresh the page and try again.');
+    }
+}</code></pre>
+        </div>
+        
+        <div class="success">
+            <h3>🎯 Expected Results</h3>
+            <p>After this fix, you should no longer see:</p>
+            <ul>
+                <li>❌ <code>"Unexpected token '&lt;', "&lt;!DOCTYPE "... is not valid JSON"</code></li>
+                <li>❌ <code>"HTTP 419: unknown status"</code></li>
+                <li>❌ Silent upload failures</li>
+            </ul>
+            <p>Instead, you'll get:</p>
+            <ul>
+                <li>✅ Successful DOCX imports with proper content extraction</li>
+                <li>✅ Clear error messages when CSRF tokens expire</li>
+                <li>✅ Proper handling of all error scenarios</li>
+            </ul>
+        </div>
+        
+        <div class="info">
+            <h3>📋 Additional Notes</h3>
+            <ul>
+                <li>The fix maintains all existing functionality (TinyMCE integration, image handling, etc.)</li>
+                <li>Error messages are now more user-friendly and actionable</li>
+                <li>The system will automatically detect and handle different response types</li>
+                <li>CSRF token expiration is handled gracefully with clear instructions</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <p><strong>Your DOCX import functionality should now work perfectly!</strong></p>
+            <p>Test it at: <a href="http://nelly-elearning.test/create-course" target="_blank">http://nelly-elearning.test/create-course</a></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -5,38 +5,40 @@ namespace App\Models\Delaware;
 use App\Models\UserCourseEnrollment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Course extends Model
 {
     protected $table = 'delaware_courses';
 
     protected $fillable = [
-        'title',
-        'description',
-        'course_details',
-        'state_code',
-        'min_pass_score',
-        'total_duration',
-        'price',
-        'dmv_course_id',
-        'certificate_template',
-        'is_active',
+        'course_id',
+        'delaware_course_code',
         'course_type',
-        'delivery_type',
+        'required_hours',
+        'max_completion_days',
+        'approval_number',
+        'approved_date',
+        'expiration_date',
+        'certificate_template',
         'quiz_rotation_enabled',
-        'aggressive_driving_course',
-        'insurance_discount_eligible',
+        'quiz_pool_size',
+        'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'quiz_rotation_enabled' => 'boolean',
-        'aggressive_driving_course' => 'boolean',
-        'insurance_discount_eligible' => 'boolean',
-        'price' => 'decimal:2',
-        'min_pass_score' => 'integer',
-        'total_duration' => 'integer',
+        'required_hours' => 'decimal:2',
+        'quiz_pool_size' => 'integer',
+        'approved_date' => 'date',
+        'expiration_date' => 'date',
     ];
+
+    public function baseCourse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Course::class, 'course_id');
+    }
 
     public function chapters(): HasMany
     {

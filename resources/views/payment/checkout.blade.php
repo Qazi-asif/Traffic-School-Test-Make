@@ -1,100 +1,100 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment - {{ $course->title }}</title>
-    <script src="https://js.stripe.com/v3/"></script>
-    @if(config('payment.paypal.client_id'))
-    <script src="https://www.paypal.com/sdk/js?client-id={{ config('payment.paypal.client_id') }}&currency=USD"></script>
-    @endif
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .payment-card { background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .course-info { border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
-        .course-title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
-        .course-price { font-size: 32px; font-weight: bold; color: #2563eb; }
-        .payment-methods { margin-bottom: 30px; }
-        .payment-method { border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.3s; }
-        .payment-method:hover, .payment-method.active { border-color: #2563eb; background: #f8faff; }
-        .payment-method h3 { margin-bottom: 10px; }
-        .stripe-form, .paypal-form { display: none; margin-top: 20px; }
-        .stripe-form.active, .paypal-form.active { display: block; }
-        #card-element { padding: 15px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; }
-        .btn { padding: 15px 30px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s; }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-success { background: #516425; color: white; }
-        .btn-success:hover { background: #3d4b1c; }
-        .loading { display: none; }
-        .error { color: #dc2626; margin-top: 10px; }
-        .order-summary { background: #f9fafb; padding: 20px; border-radius: 6px; margin-bottom: 20px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="payment-card">
-            <div class="course-info">
-                <h1 class="course-title">{{ $course->title }}</h1>
-                <p>{{ $course->description ?? 'Complete your enrollment to access this course.' }}</p>
-                <div class="course-price">${{ number_format($course->price, 2) }}</div>
+@extends('layouts.app')
+
+@section('title', 'Payment - ' . $course->title)
+
+@section('content')
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Complete Your Enrollment</h1>
+            <p class="mt-2 text-gray-600">Secure payment processing for your traffic school course</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Course Summary -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Course Summary</h2>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium text-gray-900">{{ $course->title }}</h3>
+                            <p class="text-sm text-gray-600">{{ $course->description ?? 'State-approved traffic school course' }}</p>
+                            <div class="mt-2 flex items-center text-sm text-gray-500">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                                Duration: {{ $course->duration_hours ?? 4 }} hours
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold text-gray-900">${{ number_format($course->price ?? 29.99, 2) }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Optional Services -->
+                    <div class="border-t pt-4">
+                        <h4 class="font-medium text-gray-900 mb-3">Optional Services</h4>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="optional_services[]" value="rush_processing" 
+                                       data-price="9.99" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Rush Processing (24-hour certificate delivery) - $9.99</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="optional_services[]" value="insurance_discount" 
+                                       data-price="4.99" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Insurance Discount Certificate - $4.99</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Total -->
+                    <div class="border-t pt-4">
+                        <div class="flex justify-between items-center text-lg font-semibold">
+                            <span>Total:</span>
+                            <span id="total-amount">${{ number_format($course->price ?? 29.99, 2) }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Optional Services Section -->
-            <div style="background: #fff8e1; border: 2px solid #ffa726; border-radius: 8px; padding: 25px; margin-bottom: 20px;">
-                <h3 style="margin: 0 0 20px 0; color: #e65100; display: flex; align-items: center;">
-                    <span style="font-size: 24px; margin-right: 10px;">⭐</span>
-                    Optional Services
-                </h3>
-                
-                <!-- TX, FL, California Only Services -->
-                <div style="margin-bottom: 25px;">
-                    <h4 style="color: #bf360c; margin-bottom: 15px; font-size: 16px;">TX, FL, California Only:</h4>
-                    <div style="background: white; border: 1px solid #ffcc02; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
-                        <label style="display: flex; align-items: flex-start; cursor: pointer;">
-                            <input type="checkbox" id="certverify" value="10.00" onchange="updateOptionalServices()" style="margin-right: 12px; margin-top: 4px; transform: scale(1.2);">
-                            <div>
-                                <strong style="color: #e65100;">($10.00) CertVerify:</strong>
-                                <p style="margin: 5px 0 0 0; color: #666; line-height: 1.4;">
-                                    We are the first Traffic School / Defensive Driving School to offer this service, for only a $10.00 service fee, we will verify that the court has received and viewed your certificate of completion. Upon verification we will notify you by email. <strong style="color: #e65100;">We strongly recommend this service!</strong>
-                                </p>
+            <!-- Payment Form -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Payment Information</h2>
+
+                <!-- Payment Method Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="payment_method" value="stripe" checked 
+                                   class="text-blue-600 focus:ring-blue-500">
+                            <div class="ml-3 flex items-center">
+                                <span class="text-sm font-medium text-gray-900">Credit/Debit Card</span>
+                                <div class="ml-2 flex space-x-1">
+                                    <img src="https://js.stripe.com/v3/fingerprinted/img/visa-729c05c240c4bdb47b03ac81d9945bfe.svg" alt="Visa" class="h-6">
+                                    <img src="https://js.stripe.com/v3/fingerprinted/img/mastercard-4d8844094130711885b5e41b28c9848f.svg" alt="Mastercard" class="h-6">
+                                    <img src="https://js.stripe.com/v3/fingerprinted/img/amex-a49b82f46c5cd31dc8da3e5e5c1b6ddc.svg" alt="Amex" class="h-6">
+                                </div>
+                            </div>
+                        </label>
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="payment_method" value="paypal" 
+                                   class="text-blue-600 focus:ring-blue-500">
+                            <div class="ml-3 flex items-center">
+                                <span class="text-sm font-medium text-gray-900">PayPal</span>
+                                <img src="https://www.paypalobjects.com/webstatic/mktg/Logo/pp-logo-100px.png" alt="PayPal" class="ml-2 h-6">
                             </div>
                         </label>
                     </div>
                 </div>
 
-                <!-- All States Services -->
-                <div style="margin-bottom: 25px;">
-                    <h4 style="color: #bf360c; margin-bottom: 15px; font-size: 16px;">ALL States:</h4>
-                    
-                    <div style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
-                        <label style="display: flex; align-items: center; cursor: pointer;">
-                            <input type="checkbox" id="mail_certificate" value="5.00" onchange="updateOptionalServices()" style="margin-right: 12px; transform: scale(1.2);">
-                            <strong style="color: #e65100;">($5.00) Mail/Postal a Copy Completion Certificate</strong>
-                        </label>
-                    </div>
-                    
-                    <div style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
-                        <label style="display: flex; align-items: center; cursor: pointer;">
-                            <input type="checkbox" id="fedex_certificate" value="15.00" onchange="updateOptionalServices()" style="margin-right: 12px; transform: scale(1.2);">
-                            <strong style="color: #e65100;">($15.00) Completion Certificate FedEx 2Day</strong>
-                        </label>
-                    </div>
-                    
-                    <div style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
-                        <label style="display: flex; align-items: center; cursor: pointer;">
-                            <input type="checkbox" id="nextday_certificate" value="25.00" onchange="updateOptionalServices()" style="margin-right: 12px; transform: scale(1.2);">
-                            <strong style="color: #e65100;">($25.00) Completion Certificate Next Day</strong>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- California Only Services -->
-                <div>
-                    <h4 style="color: #bf360c; margin-bottom: 15px; font-size: 16px;">California Only:</h4>
-                    <div style="background: #fff3e0; border: 1px solid #ff9800; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                <!-- Stripe Card Element -->
+                <div id="stripe-payment" class="payment-method-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Card Information</label>
                         <p style="margin: 0; color: #e65100; font-weight: bold; font-size: 14px;">
                             📧 NOTE: In CA we do not send a copy of the student completion certificate via email. They will have to pay for it.
                         </p>

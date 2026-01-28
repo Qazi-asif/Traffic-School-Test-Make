@@ -173,24 +173,74 @@ class QuestionController extends Controller
         $chapter = \App\Models\Chapter::find($chapterId);
         $courseId = $chapter ? $chapter->course_id : null;
 
-        $validated['chapter_id'] = $chapterId;
-        $validated['course_id'] = $courseId;
+        // Build data for chapter_questions table (no course_id needed)
+        $questionData = [
+            'chapter_id' => $chapterId,
+            'question_text' => $validated['question_text'],
+            'question_type' => $validated['question_type'],
+            'options' => $validated['options'],
+            'correct_answer' => $validated['correct_answer'],
+            'explanation' => $validated['explanation'],
+            'points' => $validated['points'],
+            'order_index' => $validated['order_index'],
+            'quiz_set' => $validated['quiz_set'] ?? 1,
+        ];
         
-        // Set default quiz_set to 1 if not provided
-        if (!isset($validated['quiz_set'])) {
-            $validated['quiz_set'] = 1;
-        }
-        
-        // ALWAYS save new questions in chapter_questions table (not legacy questions table)
-        \Log::info('Saving new question in chapter_questions table', [
+        \Log::info('Creating question in chapter_questions table', [
             'chapter_id' => $chapterId,
             'course_id' => $courseId,
-            'quiz_set' => $validated['quiz_set']
+            'quiz_set' => $questionData['quiz_set'],
+            'table' => 'chapter_questions'
         ]);
         
-        $question = ChapterQuestion::create($validated);
-
-        return response()->json($question, 201);
+        try {
+            // Use direct DB insert to avoid any model confusion
+            $questionId = \DB::table('chapter_questions')->insertGetId(array_merge($questionData, [
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
+            
+            // Get the created question
+            $question = \DB::table('chapter_questions')->where('id', $questionId)->first();
+            
+            \Log::info('Question created successfully', [
+                'id' => $questionId,
+                'table' => 'chapter_questions'
+            ]);
+            
+            return response()->json($question, 201);
+            
+        } catch (\Exception $dbError) {
+            \Log::error('Database error creating question', [
+                'error' => $dbError->getMessage(),
+                'data' => $questionData,
+                'table' => 'chapter_questions'
+            ]);
+            
+            // Check if chapter_questions table exists
+            $tables = \DB::select('SHOW TABLES');
+            $tableNames = array_map(function($table) {
+                return array_values((array)$table)[0];
+            }, $tables);
+            
+            if (!in_array('chapter_questions', $tableNames)) {
+                return response()->json([
+                    'error' => 'chapter_questions table does not exist. Please run migrations.',
+                    'available_tables' => array_filter($tableNames, function($name) {
+                        return strpos($name, 'question') !== false;
+                    })
+                ], 500);
+            }
+            
+            // Check table structure
+            $columns = \DB::getSchemaBuilder()->getColumnListing('chapter_questions');
+            \Log::error('chapter_questions table structure', ['columns' => $columns]);
+            
+            return response()->json([
+                'error' => 'Failed to create question: ' . $dbError->getMessage(),
+                'table_columns' => $columns
+            ], 500);
+        }
     }
 
     public function show($id)
@@ -529,21 +579,30 @@ class QuestionController extends Controller
 
             // DELETE EXISTING QUESTIONS FOR THIS CHAPTER BEFORE IMPORTING
             // This prevents duplicates when re-importing questions
-            $deletedCount = ChapterQuestion::where('chapter_id', $chapterId)->delete();
+            $deletedCount = \DB::table('chapter_questions')->where('chapter_id', $chapterId)->delete();
             \Log::info("Deleted {$deletedCount} existing questions for chapter {$chapterId} before import");
 
             $imported = 0;
             foreach ($questions as $index => $questionData) {
-                ChapterQuestion::create([
+                // Use direct DB insert to avoid model confusion
+                \DB::table('chapter_questions')->insert([
                     'chapter_id' => $chapterId,
                     'question_text' => $questionData['question'],
                     'question_type' => 'multiple_choice',
                     'options' => json_encode($questionData['options']),
                     'correct_answer' => $questionData['correct_answer'],
+                    'explanation' => null,
+                    'points' => 1,
                     'order_index' => $index + 1,
+                    'quiz_set' => 1,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
                 $imported++;
             }
+
+            \Log::info("Successfully imported {$imported} questions into chapter_questions table");
 
             return response()->json([
                 'success' => true,
@@ -553,13 +612,49 @@ class QuestionController extends Controller
                 'debug' => [
                     'text_length' => strlen($text),
                     'text_preview' => substr($text, 0, 200),
-                    'questions_parsed' => count($questions)
+                    'questions_parsed' => count($questions),
+                    'table_used' => 'chapter_questions'
                 ]
             ]);
 
         } catch (\Exception $e) {
             \Log::error('Question import error: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            // Check if it's a table structure issue
+            if (strpos($e->getMessage(), 'chapter_id') !== false) {
+                // Check if chapter_questions table exists
+                try {
+                    $tables = \DB::select('SHOW TABLES');
+                    $tableNames = array_map(function($table) {
+                        return array_values((array)$table)[0];
+                    }, $tables);
+                    
+                    if (!in_array('chapter_questions', $tableNames)) {
+                        return response()->json([
+                            'error' => 'chapter_questions table does not exist. Please run migrations.',
+                            'available_tables' => array_filter($tableNames, function($name) {
+                                return strpos($name, 'question') !== false;
+                            })
+                        ], 500);
+                    }
+                    
+                    // Check table structure
+                    $columns = \DB::getSchemaBuilder()->getColumnListing('chapter_questions');
+                    return response()->json([
+                        'error' => 'Database structure issue: ' . $e->getMessage(),
+                        'table_columns' => $columns,
+                        'missing_chapter_id' => !in_array('chapter_id', $columns)
+                    ], 500);
+                    
+                } catch (\Exception $checkError) {
+                    return response()->json([
+                        'error' => 'Import failed and could not check database structure: ' . $e->getMessage(),
+                        'check_error' => $checkError->getMessage()
+                    ], 500);
+                }
+            }
+            
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

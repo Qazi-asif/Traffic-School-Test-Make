@@ -168,6 +168,10 @@ class ProgressController extends Controller
             // Check if certificate already exists
             $existingCertificate = \App\Models\FloridaCertificate::where('enrollment_id', $enrollment->id)->first();
             if ($existingCertificate) {
+                // If certificate exists but wasn't sent, try to send email
+                if (!$existingCertificate->is_sent_to_student) {
+                    $this->sendCertificateEmail($enrollment, $existingCertificate);
+                }
                 return;
             }
 
@@ -184,7 +188,7 @@ class ProgressController extends Controller
 
             $courseName = $enrollment->floridaCourse->title ?? 'Florida Traffic School Course';
 
-            \App\Models\FloridaCertificate::create([
+            $certificate = \App\Models\FloridaCertificate::create([
                 'enrollment_id' => $enrollment->id,
                 'dicds_certificate_number' => $certificateNumber,
                 'student_name' => $enrollment->user->first_name.' '.$enrollment->user->last_name,
@@ -192,10 +196,141 @@ class ProgressController extends Controller
                 'completion_date' => $enrollment->completed_at,
                 'verification_hash' => \Illuminate\Support\Str::random(32),
                 'status' => 'generated',
+                'is_sent_to_student' => false, // Will be updated after email is sent
             ]);
+
+            // Send certificate email
+            $this->sendCertificateEmail($enrollment, $certificate);
 
         } catch (\Exception $e) {
             \Log::error('Certificate generation error: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Send certificate email to student
+     */
+    private function sendCertificateEmail(UserCourseEnrollment $enrollment, $certificate)
+    {
+        try {
+            $user = $enrollment->user;
+            $course = $enrollment->course ?? $enrollment->floridaCourse;
+            
+            // Generate PDF for email attachment
+            $certificatePdf = $this->generateCertificatePdf($enrollment, $certificate);
+            
+            // Send email with certificate attachment
+            \Mail::to($user->email)->send(new \App\Mail\CertificateGenerated(
+                $user,
+                $course,
+                $certificate->dicds_certificate_number,
+                $certificatePdf
+            ));
+
+            // Update certificate as sent
+            $certificate->update([
+                'is_sent_to_student' => true,
+                'sent_at' => now()
+            ]);
+
+            \Log::info('Certificate email sent successfully', [
+                'enrollment_id' => $enrollment->id,
+                'user_email' => $user->email,
+                'certificate_number' => $certificate->dicds_certificate_number
+            ]);
+
+            // Fire certificate emailed event for tracking
+            event(new \App\Events\CertificateEmailed($certificate, $user));
+
+        } catch (\Exception $e) {
+            \Log::error('Certificate email error: '.$e->getMessage(), [
+                'enrollment_id' => $enrollment->id,
+                'certificate_id' => $certificate->id,
+                'user_email' => $user->email ?? 'unknown'
+            ]);
+            
+            // Mark as failed for retry later
+            $certificate->update([
+                'email_failed_at' => now(),
+                'email_failure_reason' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Generate certificate PDF for email attachment
+     */
+    private function generateCertificatePdf(UserCourseEnrollment $enrollment, $certificate)
+    {
+        try {
+            $user = $enrollment->user;
+            
+            // Build student address
+            $addressParts = array_filter([
+                $user->mailing_address,
+                $user->city,
+                $user->state,
+                $user->zip,
+            ]);
+            $student_address = implode(', ', $addressParts);
+
+            // Build phone number
+            $phone_parts = array_filter([$user->phone_1, $user->phone_2, $user->phone_3]);
+            $phone = implode('-', $phone_parts);
+
+            // Build birth date
+            $birth_date = null;
+            if ($user->birth_month && $user->birth_day && $user->birth_year) {
+                $birth_date = $user->birth_month.'/'.$user->birth_day.'/'.$user->birth_year;
+            }
+
+            // Build due date
+            $due_date = null;
+            if ($user->due_month && $user->due_day && $user->due_year) {
+                $due_date = $user->due_month.'/'.$user->due_day.'/'.$user->due_year;
+            }
+
+            // Get state stamp if available
+            $stateStamp = null;
+            $course = $enrollment->course ?? $enrollment->floridaCourse;
+            if ($course) {
+                $stateCode = $course->state ?? $course->state_code ?? 'FL';
+                $stateStamp = \App\Models\StateStamp::where('state_code', strtoupper($stateCode))
+                    ->where('is_active', true)
+                    ->first();
+            }
+
+            $data = [
+                'student_name' => $certificate->student_name,
+                'student_address' => $student_address,
+                'completion_date' => $certificate->completion_date->format('m/d/Y'),
+                'course_type' => $certificate->course_name,
+                'score' => $enrollment->final_exam_score ? $enrollment->final_exam_score.'%' : 'Passed',
+                'license_number' => $user->driver_license,
+                'birth_date' => $birth_date,
+                'citation_number' => $enrollment->citation_number,
+                'due_date' => $due_date,
+                'court' => $user->court_selected,
+                'county' => $user->state,
+                'certificate_number' => $certificate->dicds_certificate_number,
+                'phone' => $phone,
+                'city' => $user->city,
+                'state' => $user->state,
+                'zip' => $user->zip,
+                'state_stamp' => $stateStamp,
+            ];
+
+            // Generate PDF using DomPDF
+            if (class_exists('\Barryvdh\DomPDF\Facade\Pdf')) {
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('certificate-pdf', $data);
+                return $pdf->output();
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            \Log::error('Certificate PDF generation error: '.$e->getMessage());
+            return null;
         }
     }
 

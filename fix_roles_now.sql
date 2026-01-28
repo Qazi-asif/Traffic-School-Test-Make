@@ -1,0 +1,43 @@
+-- Fix 403 Admin Errors - Direct SQL Commands
+-- Run these commands in your database management tool
+
+-- Step 1: Set temporary slugs to avoid conflicts
+UPDATE roles SET slug = 'temp-super-admin' WHERE id = 1;
+UPDATE roles SET slug = 'temp-admin' WHERE id = 2;
+UPDATE roles SET slug = 'temp-user' WHERE id = 3;
+
+-- Step 2: Set correct roles
+UPDATE roles SET 
+    name = 'Super Admin', 
+    slug = 'super-admin', 
+    description = 'Full system access',
+    updated_at = NOW()
+WHERE id = 1;
+
+UPDATE roles SET 
+    name = 'Admin', 
+    slug = 'admin', 
+    description = 'Administrative access',
+    updated_at = NOW()
+WHERE id = 2;
+
+UPDATE roles SET 
+    name = 'User', 
+    slug = 'user', 
+    description = 'Regular user access',
+    updated_at = NOW()
+WHERE id = 3;
+
+-- Step 3: Make first user an admin
+UPDATE users SET role_id = 1, updated_at = NOW() WHERE id = 1;
+
+-- Step 4: Verify the fix
+SELECT 'ROLES AFTER FIX:' as status;
+SELECT id, name, slug, description FROM roles ORDER BY id;
+
+SELECT 'ADMIN USERS:' as status;
+SELECT u.id, u.name, u.email, u.role_id, r.name as role_name, r.slug as role_slug
+FROM users u
+LEFT JOIN roles r ON u.role_id = r.id
+WHERE u.role_id IN (1, 2)
+ORDER BY u.id;

@@ -3,59 +3,176 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\FloridaCourse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class CourseController extends Controller
 {
+    /**
+     * Detect which state table to use based on user or request
+     */
+    private function detectStateTable($user = null, $request = null)
+    {
+        // Priority 1: Explicit request parameter
+        if ($request && $request->has('state_table')) {
+            return $request->get('state_table');
+        }
+        
+        // Priority 2: User's state
+        if (!$user) {
+            $user = auth()->user();
+        }
+        
+        if ($user && isset($user->state_code)) {
+            switch (strtolower($user->state_code)) {
+                case 'florida':
+                case 'fl':
+                    return 'florida_courses';
+                case 'missouri':
+                case 'mo':
+                    return 'missouri_courses';
+                case 'texas':
+                case 'tx':
+                    return 'texas_courses';
+                case 'delaware':
+                case 'de':
+                    return 'delaware_courses';
+                case 'nevada':
+                case 'nv':
+                    return 'nevada_courses';
+                default:
+                    return 'florida_courses';
+            }
+        }
+        
+        return 'florida_courses';
+    }
+    
+    /**
+     * Query courses from all state tables and combine results
+     */
+    private function queryAllStateCourses($request = null)
+    {
+        $allCourses = collect();
+        
+        // Query Florida courses (existing table)
+        try {
+            if (Schema::hasTable('florida_courses')) {
+                $floridaCourses = DB::table('florida_courses')
+                    ->when($request && $request->has('is_active'), function($q) use ($request) {
+                        return $q->where('is_active', $request->is_active);
+                    })
+                    ->when($request && $request->search, function($q) use ($request) {
+                        return $q->where('title', 'like', '%' . $request->search . '%');
+                    })
+                    ->get();
+                    
+                foreach ($floridaCourses as $course) {
+                    $allCourses->push([
+                        'id' => $course->id,
+                        'title' => $course->title,
+                        'description' => $course->description ?? '',
+                        'state_code' => $course->state_code ?? $course->state ?? 'FL',
+                        'total_duration' => $course->total_duration ?? $course->duration ?? 0,
+                        'price' => $course->price ?? 0,
+                        'min_pass_score' => $course->min_pass_score ?? $course->passing_score ?? 80,
+                        'is_active' => $course->is_active ?? true,
+                        'course_type' => $course->course_type ?? 'BDI',
+                        'table' => 'florida_courses',
+                        'state_name' => 'Florida',
+                        'created_at' => $course->created_at,
+                        'updated_at' => $course->updated_at,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Error loading Florida courses: ' . $e->getMessage());
+        }
+        
+        // Query regular courses table if it exists
+        try {
+            if (Schema::hasTable('courses')) {
+                $regularCourses = DB::table('courses')
+                    ->when($request && $request->has('is_active'), function($q) use ($request) {
+                        return $q->where('is_active', $request->is_active);
+                    })
+                    ->when($request && $request->search, function($q) use ($request) {
+                        return $q->where('title', 'like', '%' . $request->search . '%');
+                    })
+                    ->get();
+                    
+                foreach ($regularCourses as $course) {
+                    $allCourses->push([
+                        'id' => $course->id,
+                        'title' => $course->title,
+                        'description' => $course->description ?? '',
+                        'state_code' => $course->state_code ?? $course->state ?? 'MO',
+                        'total_duration' => $course->total_duration ?? $course->duration ?? 0,
+                        'price' => $course->price ?? 0,
+                        'min_pass_score' => $course->min_pass_score ?? $course->passing_score ?? 80,
+                        'is_active' => $course->is_active ?? true,
+                        'course_type' => $course->course_type ?? 'Regular',
+                        'table' => 'courses',
+                        'state_name' => 'Other',
+                        'created_at' => $course->created_at,
+                        'updated_at' => $course->updated_at,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Error loading regular courses: ' . $e->getMessage());
+        }
+        
+        return $allCourses;
+    }
     public function index(Request $request)
     {
-        \Log::info('=== Courses API START ===');
+        Log::info('=== State-Aware Courses API START ===');
         
-        // Try florida_courses first since it has data
-        $floridaCount = DB::table('florida_courses')->count();
-        $coursesCount = DB::table('courses')->count();
-        
-        \Log::info('florida_courses count: ' . $floridaCount);
-        \Log::info('courses count: ' . $coursesCount);
-        
-        if ($floridaCount > 0) {
-            \Log::info('Using florida_courses table');
-            // Explicitly select all columns including strict_duration_enabled
-            $query = DB::table('florida_courses')->select(
-                'id', 'title', 'description', 'state_code', 'min_pass_score', 
-                'total_duration', 'price', 'certificate_template', 'is_active',
-                'strict_duration_enabled', 'created_at', 'updated_at'
-            );
-        } else {
-            \Log::info('Using courses table');
-            $query = Course::query();
+        try {
+            $allCourses = $this->queryAllStateCourses($request);
+            
+            Log::info('Total courses loaded from all states: ' . $allCourses->count());
+            
+            return response()->json($allCourses);
+        } catch (\Exception $e) {
+            Log::error('State-aware courses index error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to load courses'], 500);
         }
+    }
 
-        if ($request->state_code) {
-            $query->where('state_code', $request->state_code);
-        }
+    public function indexWeb(Request $request)
+    {
+        try {
+            Log::info('CourseController indexWeb called (state-aware)', ['request' => $request->all()]);
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->is_active);
-        }
+            $allCourses = $this->queryAllStateCourses($request);
+            
+            Log::info('CourseController indexWeb success (state-aware)', ['courses_count' => $allCourses->count()]);
 
-        if ($request->search) {
-            $query->where('title', 'like', '%'.$request->search.'%');
+            return response()->json($allCourses);
+        } catch (\Exception $e) {
+            Log::error('Course indexWeb error (state-aware): ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
 
-        $result = $query->get();
-        \Log::info('Courses loaded: ' . $result->count());
-        
-        // Log first course data
-        if ($result->count() > 0) {
-            \Log::info('First course data: ' . json_encode($result[0]));
-            \Log::info('strict_duration_enabled value: ' . ($result[0]->strict_duration_enabled ?? 'NULL'));
+    public function publicIndex(Request $request)
+    {
+        try {
+            $allCourses = $this->queryAllStateCourses($request);
+            
+            // Filter only active courses for public view
+            $activeCourses = $allCourses->where('is_active', true);
+            
+            return response()->json($activeCourses->values());
+        } catch (\Exception $e) {
+            Log::error('Course publicIndex error (state-aware): ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to load courses'], 500);
         }
-        
-        \Log::info('=== Courses API END ===');
-        
-        return response()->json($result);
     }
 
     public function store(Request $request)
@@ -106,72 +223,13 @@ class CourseController extends Controller
         return response()->json(['message' => 'Course deleted successfully']);
     }
 
-    // Public course listing for all authenticated users
-    public function publicIndex(Request $request)
-    {
-        try {
-            // Fetch only active courses from both tables
-            $floridaCourses = DB::table('florida_courses')
-                ->where('is_active', true)
-                ->when($request->state_code, function ($query, $state) {
-                    return $query->where('state', $state);
-                })
-                ->when($request->search, function ($query, $search) {
-                    return $query->where('title', 'like', '%'.$search.'%');
-                })
-                ->get();
 
-            $regularCourses = DB::table('courses')
-                ->where('is_active', true)
-                ->when($request->state_code, function ($query, $state) {
-                    return $query->where('state_code', $state);
-                })
-                ->when($request->search, function ($query, $search) {
-                    return $query->where('title', 'like', '%'.$search.'%');
-                })
-                ->get();
 
-            // Combine and format courses for public view
-            $allCourses = collect();
-
-            foreach ($floridaCourses as $course) {
-                $allCourses->push([
-                    'id' => $course->id,
-                    'title' => $course->title,
-                    'description' => $course->description,
-                    'state_code' => $course->state,
-                    'total_duration' => $course->duration,
-                    'price' => $course->price,
-                    'course_type' => $course->course_type ?? 'BDI',
-                    'table' => 'florida_courses',
-                ]);
-            }
-
-            foreach ($regularCourses as $course) {
-                $allCourses->push([
-                    'id' => $course->id,
-                    'title' => $course->title,
-                    'description' => $course->description,
-                    'state_code' => $course->state_code,
-                    'total_duration' => $course->total_duration,
-                    'price' => $course->price,
-                    'course_type' => 'Regular',
-                    'table' => 'courses',
-                ]);
-            }
-
-            return response()->json($allCourses);
-        } catch (\Exception $e) {
-            \Log::error('Course publicIndex error: '.$e->getMessage());
-
-            return response()->json(['error' => 'Failed to load courses'], 500);
-        }
-    }
-
-    // Web-specific methods for session authentication
     public function storeWeb(Request $request)
     {
         try {
+            \Log::info('CourseController storeWeb called', ['request_data' => $request->all()]);
+            
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'description' => 'required|string',
@@ -183,115 +241,55 @@ class CourseController extends Controller
                 'is_active' => 'boolean',
             ]);
 
-            // Map form fields to actual database columns
+            // Map form fields to actual database columns for florida_courses table
             $courseData = [
                 'title' => $validated['title'],
                 'description' => $validated['description'],
-                'state_code' => $validated['state_code'],
+                'state' => $validated['state_code'], // Map state_code to state field
                 'passing_score' => $validated['min_pass_score'],
                 'duration' => $validated['total_duration'],
                 'price' => $validated['price'],
                 'certificate_type' => $validated['certificate_template'] ?? null,
                 'is_active' => $validated['is_active'] ?? true,
                 'course_type' => 'BDI',
+                'delivery_type' => 'Online',
+                'dicds_course_id' => 'AUTO_' . time() . '_' . rand(1000, 9999),
             ];
 
+            \Log::info('Creating course with mapped data', ['course_data' => $courseData]);
+
             $course = \App\Models\FloridaCourse::create($courseData);
+
+            \Log::info('Course created successfully', ['course_id' => $course->id]);
 
             if ($request->wantsJson()) {
                 return response()->json($course, 201);
             }
 
             return redirect('/courses')->with('success', 'Course created successfully!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Course validation error', ['errors' => $e->errors()]);
+            return response()->json([
+                'error' => 'Validation failed',
+                'validation_errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
-            \Log::error('Course storeWeb error: '.$e->getMessage());
+            \Log::error('Course storeWeb error: ' . $e->getMessage());
+            \Log::error('Error file: ' . $e->getFile());
+            \Log::error('Error line: ' . $e->getLine());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
 
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'Failed to create course: ' . $e->getMessage(),
+                'details' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
+            ], 500);
         }
     }
 
-    public function indexWeb(Request $request)
-    {
-        try {
-            \Log::info('CourseController indexWeb called', ['request' => $request->all()]);
 
-            // Fetch from both tables
-            $floridaCourses = DB::table('florida_courses')
-                ->when($request->state_code, function ($query, $state) {
-                    return $query->where(function ($q) use ($state) {
-                        $q->where('state_code', $state)->orWhere('state', $state);
-                    });
-                })
-                ->when($request->has('is_active'), function ($query) use ($request) {
-                    return $query->where('is_active', $request->is_active);
-                })
-                ->when($request->search, function ($query, $search) {
-                    return $query->where('title', 'like', '%'.$search.'%');
-                })
-                ->get();
-
-            $regularCourses = DB::table('courses')
-                ->when($request->state_code, function ($query, $state) {
-                    return $query->where(function ($q) use ($state) {
-                        $q->where('state_code', $state)->orWhere('state', $state);
-                    });
-                })
-                ->when($request->has('is_active'), function ($query) use ($request) {
-                    return $query->where('is_active', $request->is_active);
-                })
-                ->when($request->search, function ($query, $search) {
-                    return $query->where('title', 'like', '%'.$search.'%');
-                })
-                ->get();
-
-            // Combine and format courses
-            $allCourses = collect();
-
-            foreach ($floridaCourses as $course) {
-                $allCourses->push([
-                    'id' => $course->id,
-                    'real_id' => $course->id,
-                    'title' => $course->title,
-                    'description' => $course->description ?? '',
-                    'state_code' => $course->state_code ?? $course->state ?? 'FL',
-                    'total_duration' => $course->total_duration ?? $course->duration ?? 0,
-                    'duration' => $course->duration ?? 0,
-                    'price' => $course->price ?? 0,
-                    'passing_score' => $course->min_pass_score ?? $course->passing_score ?? 80,
-                    'is_active' => $course->is_active ?? true,
-                    'course_type' => $course->course_type ?? 'BDI',
-                    'certificate_type' => $course->certificate_template ?? $course->certificate_type ?? null,
-                    'table' => 'florida_courses',
-                ]);
-            }
-
-            foreach ($regularCourses as $course) {
-                $allCourses->push([
-                    'id' => $course->id,
-                    'real_id' => $course->id,
-                    'title' => $course->title,
-                    'description' => $course->description ?? '',
-                    'state_code' => $course->state ?? 'FL',
-                    'total_duration' => $course->duration ?? 0,
-                    'duration' => $course->duration ?? 0,
-                    'price' => $course->price ?? 0,
-                    'passing_score' => $course->passing_score ?? 80,
-                    'is_active' => $course->is_active ?? true,
-                    'course_type' => $course->course_type ?? 'Regular',
-                    'certificate_type' => $course->certificate_type ?? null,
-                    'table' => 'courses',
-                ]);
-            }
-
-            \Log::info('CourseController indexWeb success', ['courses_count' => $allCourses->count()]);
-
-            return response()->json($allCourses);
-        } catch (\Exception $e) {
-            \Log::error('Course indexWeb error: '.$e->getMessage());
-
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
 
     public function updateWeb(Request $request, $id)
     {

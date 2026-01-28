@@ -65,10 +65,20 @@ class UserCourseEnrollment extends Model
             "enrollment_course_{$this->id}_{$this->course_table}_{$this->course_id}",
             300, // 5 minutes
             function () {
-                if ($this->course_table === 'florida_courses') {
-                    return \App\Models\FloridaCourse::find($this->course_id);
+                switch ($this->course_table) {
+                    case 'florida_courses':
+                        return \App\Models\FloridaCourse::find($this->course_id);
+                    case 'missouri_courses':
+                        return \App\Models\Missouri\Course::find($this->course_id);
+                    case 'texas_courses':
+                        return \App\Models\Texas\Course::find($this->course_id);
+                    case 'delaware_courses':
+                        return \App\Models\Delaware\Course::find($this->course_id);
+                    case 'nevada_courses':
+                        return \App\Models\NevadaCourse::find($this->course_id);
+                    default:
+                        return \App\Models\Course::find($this->course_id);
                 }
-                return \App\Models\Course::find($this->course_id);
             }
         );
     }
@@ -83,16 +93,47 @@ class UserCourseEnrollment extends Model
         // Dynamic relationship based on course_table field
         $table = $this->course_table ?? 'florida_courses';
         
-        if ($table === 'courses') {
-            return $this->belongsTo(Course::class, 'course_id');
-        } else {
-            return $this->belongsTo(FloridaCourse::class, 'course_id');
+        switch ($table) {
+            case 'courses':
+                return $this->belongsTo(Course::class, 'course_id');
+            case 'florida_courses':
+                return $this->belongsTo(FloridaCourse::class, 'course_id');
+            case 'missouri_courses':
+                return $this->belongsTo(\App\Models\Missouri\Course::class, 'course_id');
+            case 'texas_courses':
+                return $this->belongsTo(\App\Models\Texas\Course::class, 'course_id');
+            case 'delaware_courses':
+                return $this->belongsTo(\App\Models\Delaware\Course::class, 'course_id');
+            case 'nevada_courses':
+                return $this->belongsTo(NevadaCourse::class, 'course_id');
+            default:
+                return $this->belongsTo(FloridaCourse::class, 'course_id');
         }
     }
 
     public function floridaCourse(): BelongsTo
     {
         return $this->belongsTo(FloridaCourse::class, 'course_id');
+    }
+
+    public function missouriCourse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Missouri\Course::class, 'course_id');
+    }
+
+    public function texasCourse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Texas\Course::class, 'course_id');
+    }
+
+    public function delawareCourse(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Delaware\Course::class, 'course_id');
+    }
+
+    public function nevadaCourse(): BelongsTo
+    {
+        return $this->belongsTo(NevadaCourse::class, 'course_id');
     }
 
     public function legacyCourse(): BelongsTo
@@ -105,10 +146,21 @@ class UserCourseEnrollment extends Model
     {
         $table = $this->course_table ?? 'florida_courses';
         
-        if ($table === 'courses') {
-            return \Illuminate\Support\Facades\DB::table('courses')->where('id', $this->course_id)->first();
-        } else {
-            return \Illuminate\Support\Facades\DB::table('florida_courses')->where('id', $this->course_id)->first();
+        switch ($table) {
+            case 'courses':
+                return \Illuminate\Support\Facades\DB::table('courses')->where('id', $this->course_id)->first();
+            case 'florida_courses':
+                return \Illuminate\Support\Facades\DB::table('florida_courses')->where('id', $this->course_id)->first();
+            case 'missouri_courses':
+                return \Illuminate\Support\Facades\DB::table('missouri_courses')->where('id', $this->course_id)->first();
+            case 'texas_courses':
+                return \Illuminate\Support\Facades\DB::table('texas_courses')->where('id', $this->course_id)->first();
+            case 'delaware_courses':
+                return \Illuminate\Support\Facades\DB::table('delaware_courses')->where('id', $this->course_id)->first();
+            case 'nevada_courses':
+                return \Illuminate\Support\Facades\DB::table('nevada_courses')->where('id', $this->course_id)->first();
+            default:
+                return \Illuminate\Support\Facades\DB::table('florida_courses')->where('id', $this->course_id)->first();
         }
     }
 

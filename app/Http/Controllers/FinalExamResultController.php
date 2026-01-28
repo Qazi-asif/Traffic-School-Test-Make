@@ -163,7 +163,7 @@ class FinalExamResultController extends Controller
                 'status' => $enrollmentModel->status,
                 'progress' => $enrollmentModel->progress_percentage,
                 'final_exam_completed' => $enrollmentModel->final_exam_completed,
-                'is_passing' => $result->is_passing
+                'exam_passed' => $result->passed
             ]);
             
             // Use the ProgressController method to update progress

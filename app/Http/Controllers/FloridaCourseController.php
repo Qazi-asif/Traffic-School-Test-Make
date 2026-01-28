@@ -299,36 +299,68 @@ class FloridaCourseController extends Controller
     public function storeWeb(Request $request)
     {
         try {
+            \Log::info('FloridaCourseController storeWeb called', ['request_data' => $request->all()]);
+            
             $validated = $request->validate([
-                'course_type' => 'required|string',
-                'delivery_type' => 'required|string',
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
+                'state_code' => 'nullable|string|max:10',
                 'total_duration' => 'required|integer|min:1',
                 'min_pass_score' => 'required|integer|min:0|max:100',
                 'price' => 'required|numeric|min:0',
-                'dicds_course_id' => 'required|string|max:255',
+                'certificate_template' => 'nullable|string',
                 'is_active' => 'boolean',
+                // Optional fields with defaults
+                'course_type' => 'nullable|string',
+                'delivery_type' => 'nullable|string',
+                'dicds_course_id' => 'nullable|string|max:255',
             ]);
 
-            $course = FloridaCourse::create([
-                'course_type' => $validated['course_type'],
-                'delivery_type' => $validated['delivery_type'],
+            // Map form fields to database fields with proper defaults
+            $courseData = [
                 'title' => $validated['title'],
                 'description' => $validated['description'],
                 'duration' => $validated['total_duration'],
-                'min_pass_score' => $validated['min_pass_score'],
-                'price' => $validated['price'],
-                'dicds_course_id' => $validated['dicds_course_id'],
-                'is_active' => $validated['is_active'] ?? true,
-                'state_code' => 'FL',
                 'passing_score' => $validated['min_pass_score'],
-            ]);
+                'price' => $validated['price'],
+                'is_active' => $validated['is_active'] ?? true,
+                'course_type' => $validated['course_type'] ?? 'BDI',
+                'delivery_type' => $validated['delivery_type'] ?? 'Online',
+                'dicds_course_id' => $validated['dicds_course_id'] ?? 'AUTO_' . time(),
+                'certificate_type' => $validated['certificate_template'] ?? null,
+            ];
+
+            // Handle state field (the table uses 'state', not 'state_code')
+            if (isset($validated['state_code'])) {
+                $courseData['state'] = $validated['state_code'];
+            } else {
+                $courseData['state'] = 'FL';
+            }
+
+            \Log::info('Creating Florida course with data', ['course_data' => $courseData]);
+
+            $course = FloridaCourse::create($courseData);
+
+            \Log::info('Florida course created successfully', ['course_id' => $course->id]);
 
             return response()->json($course, 201);
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Florida course validation error', ['errors' => $e->errors()]);
             return response()->json([
-                'error' => 'Failed to create course: ' . $e->getMessage()
+                'error' => 'Validation failed',
+                'validation_errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Florida course creation error: ' . $e->getMessage());
+            \Log::error('Error file: ' . $e->getFile());
+            \Log::error('Error line: ' . $e->getLine());
+            
+            return response()->json([
+                'error' => 'Failed to create course: ' . $e->getMessage(),
+                'details' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
             ], 500);
         }
     }
