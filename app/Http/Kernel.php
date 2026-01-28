@@ -63,5 +63,11 @@ class Kernel extends HttpKernel
         'payment' => \App\Http\Middleware\PaymentMiddleware::class,
         'check.course.review' => \App\Http\Middleware\CheckCourseReview::class,
         'module.check' => \App\Http\Middleware\DirectBlockMiddleware::class,
+<<<<<<< HEAD
+=======
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        'state' => \App\Http\Middleware\StateMiddleware::class,
+        'super-admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+>>>>>>> e8fe972 (Humayun Work)
     ];
 }
