@@ -2219,4 +2219,11 @@ Route::get('/test-pdf-download/{id?}', function ($id = null) {
             'error' => 'Failed to generate test certificate PDF: ' . $e->getMessage()
         ], 500);
     }
+<<<<<<< HEAD
 });
+=======
+});
+
+// Admin Routes - Include the complete admin system
+Route::prefix('admin')->group(base_path('routes/admin.php'));
+>>>>>>> e8fe972 (Humayun Work)

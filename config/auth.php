@@ -46,6 +46,14 @@ return [
             'provider' => 'users',
         ],
 
+<<<<<<< HEAD
+=======
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admin_users',
+        ],
+
+>>>>>>> e8fe972 (Humayun Work)
         'dicds' => [
             'driver' => 'session',
             'provider' => 'dicds_users',
@@ -75,6 +83,14 @@ return [
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
 
+<<<<<<< HEAD
+=======
+        'admin_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\AdminUser::class,
+        ],
+
+>>>>>>> e8fe972 (Humayun Work)
         'dicds_users' => [
             'driver' => 'eloquent',
             'model' => App\Models\DicdsUser::class,
@@ -112,6 +128,16 @@ return [
             'expire' => 60,
             'throttle' => 10,
         ],
+<<<<<<< HEAD
+=======
+
+        'admin_users' => [
+            'provider' => 'admin_users',
+            'table' => 'password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 10,
+        ],
+>>>>>>> e8fe972 (Humayun Work)
     ],
 
     /*
