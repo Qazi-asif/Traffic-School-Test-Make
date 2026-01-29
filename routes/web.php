@@ -1481,9 +1481,11 @@ Route::middleware(['auth', 'role:super-admin,admin,user'])->group(function () {
     Route::get('/api/chapters/{id}', [App\Http\Controllers\ChapterController::class, 'show']);
     Route::put('/api/chapters/{id}', [App\Http\Controllers\ChapterController::class, 'updateWeb']);
     Route::delete('/api/chapters/{id}', [App\Http\Controllers\ChapterController::class, 'destroyWeb']);
+
+    // Old quiz import routes (deprecated)
     Route::get('/api/chapters/{id}/questions', [App\Http\Controllers\QuestionController::class, 'index']);
     Route::post('/api/chapters/{id}/questions', [App\Http\Controllers\QuestionController::class, 'store']);
-    Route::post('/api/chapters/{id}/questions/import', [App\Http\Controllers\QuestionController::class, 'import']);
+    Route::post('/api/chapters/{id}/questions/import', [App\Http\Controllers\QuestionController::class, 'import']); // Deprecated
     Route::get('/api/questions/{id}', [App\Http\Controllers\QuestionController::class, 'show']);
     Route::put('/api/questions/{id}', [App\Http\Controllers\QuestionController::class, 'update']);
     Route::delete('/api/questions/{id}', [App\Http\Controllers\QuestionController::class, 'destroy']);
@@ -1543,6 +1545,30 @@ Route::middleware(['auth', 'role:super-admin,admin'])->group(function () {
     Route::get('/admin/dashboard', function () {
         return view('dashboard');
     });
+    
+    // Simple Quiz Import System (Working Version)
+    Route::prefix('admin/simple-quiz-import')->name('admin.simple-quiz-import.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\SimpleQuizImportController::class, 'index'])->name('index');
+        Route::post('/text', [App\Http\Controllers\Admin\SimpleQuizImportController::class, 'importText'])->name('text');
+        Route::post('/file', [App\Http\Controllers\Admin\SimpleQuizImportController::class, 'importFile'])->name('file');
+    });
+
+    // Quiz Import System - Advanced multi-format import
+    Route::prefix('admin/quiz-import')->name('admin.quiz-import.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\QuizImportController::class, 'index'])->name('index');
+        Route::post('/single', [App\Http\Controllers\Admin\QuizImportController::class, 'importSingle'])->name('single');
+        Route::post('/bulk', [App\Http\Controllers\Admin\QuizImportController::class, 'importBulk'])->name('bulk');
+        Route::post('/text', [App\Http\Controllers\Admin\QuizImportController::class, 'importText'])->name('text');
+        Route::post('/preview', [App\Http\Controllers\Admin\QuizImportController::class, 'previewFile'])->name('preview');
+        Route::get('/chapters/{courseId}', [App\Http\Controllers\Admin\QuizImportController::class, 'getChapters'])->name('chapters');
+    });
+
+    // Quick Quiz Import - For course management interface
+    Route::prefix('admin/quick-quiz-import')->name('admin.quick-quiz-import.')->group(function () {
+        Route::post('/import', [App\Http\Controllers\Admin\QuickQuizImportController::class, 'quickImport'])->name('import');
+        Route::post('/auto-import', [App\Http\Controllers\Admin\QuickQuizImportController::class, 'autoImportFromChapter'])->name('auto-import');
+    });
+    
     Route::get('/admin/enrollments', function () {
         return view('admin.enrollments');
     });
